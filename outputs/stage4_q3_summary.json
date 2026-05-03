@@ -1,0 +1,13 @@
+{
+  "analysis_rows": 59049,
+  "analysis_dates": 729,
+  "excluded_rows_no_external_data": 81,
+  "humidity_available": false,
+  "weather_reference": "晴",
+  "controlled_regression_r2": 0.025615031102843022,
+  "controlled_regression_adj_r2": 0.024772723300518384,
+  "random_forest_wape": 0.8925856534943167,
+  "top_factor_by_regression_effect": "天气",
+  "top_rf_feature": "商品类别",
+  "factor_summary_rows": 7
+}

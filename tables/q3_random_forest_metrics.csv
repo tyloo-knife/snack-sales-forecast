@@ -1,0 +1,2 @@
+﻿model,train_rows,validation_rows,validation_start,MAE,RMSE,WAPE,R2,note
+RandomForestRegressor,56619,2430,2022-03-01,1.9952778887988183,4.966706325652224,0.8925856534943167,-0.0719278138853181,用于非线性特征重要性分析，不用于证明因果

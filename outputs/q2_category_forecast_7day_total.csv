@@ -1,0 +1,9 @@
+﻿category,model,model_label,predicted_7day_sales,recommended_method
+包装散称,exp_smoothing,简单指数平滑,389.61323390044265,类别聚合后直接预测
+功能饮料,exp_smoothing,简单指数平滑,286.7191725872693,类别聚合后直接预测
+碳酸饮料,exp_smoothing,简单指数平滑,247.32626546368658,类别聚合后直接预测
+乳类饮品,exp_smoothing,简单指数平滑,92.85253331329098,类别聚合后直接预测
+速食类,exp_smoothing,简单指数平滑,87.82114294948079,类别聚合后直接预测
+包装海苔,exp_smoothing,简单指数平滑,70.24693091679417,类别聚合后直接预测
+包装坚果,exp_smoothing,简单指数平滑,47.968963609174224,类别聚合后直接预测
+包装冲饮,exp_smoothing,简单指数平滑,0.0,类别聚合后直接预测

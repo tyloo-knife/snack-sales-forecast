@@ -1,0 +1,6 @@
+﻿factor,field,pearson_corr_with_daily_sales,q1,q3,iqr
+最高温,max_temperature,-0.005959644062634584,15.0,30.0,15.0
+最低温,min_temperature,0.02608179075085392,7.0,22.0,15.0
+平均温,avg_temperature,0.009965605491923905,11.0,26.0,15.0
+昼夜温差,temperature_range,-0.09218917818955186,5.0,10.0,5.0
+风力,wind_power,0.013575955381658872,2.0,4.0,2.0

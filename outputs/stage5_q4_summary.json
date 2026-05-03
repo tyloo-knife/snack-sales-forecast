@@ -1,0 +1,14 @@
+{
+  "validation_start": "2022-03-01",
+  "validation_end": "2022-03-30",
+  "n_validation_predictions": 11400,
+  "best_comprehensive_model": "ridge",
+  "best_comprehensive_label": "综合Ridge回归",
+  "best_comprehensive_wape": 0.7309078032796675,
+  "q1_exp_smoothing_wape": 0.751012867316391,
+  "relative_wape_improvement_vs_q1_pct": 2.677059862977493,
+  "future_forecast_rows": 532,
+  "future_store_product_combinations": 76,
+  "future_total_sales": 1311.2940321631913,
+  "future_external_weather_observed": false
+}

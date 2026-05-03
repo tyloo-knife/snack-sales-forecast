@@ -1,0 +1,48 @@
+{
+  "validation_start": "2022-03-01",
+  "future_dates": [
+    "2022-04-01",
+    "2022-04-02",
+    "2022-04-03",
+    "2022-04-04",
+    "2022-04-05",
+    "2022-04-06",
+    "2022-04-07"
+  ],
+  "top_store": {
+    "store_name": "B地江山店店",
+    "total_sales": 21773.0
+  },
+  "top_product": {
+    "product_name": "红牛",
+    "total_sales": 31119.0
+  },
+  "best_models": [
+    {
+      "level": "product",
+      "model": "exp_smoothing",
+      "model_label": "简单指数平滑",
+      "WAPE": 0.3813982665890983,
+      "MAE": 5.747630866931412,
+      "RMSE": 10.968068514997912
+    },
+    {
+      "level": "store",
+      "model": "moving_average_7",
+      "model_label": "移动平均(7日)",
+      "WAPE": 0.3748789562203761,
+      "MAE": 9.684660961158656,
+      "RMSE": 15.445121326258523
+    },
+    {
+      "level": "store_product",
+      "model": "exp_smoothing",
+      "model_label": "简单指数平滑",
+      "WAPE": 0.7494609343110773,
+      "MAE": 1.7833098462427417,
+      "RMSE": 3.732593052962817
+    }
+  ],
+  "store_7day_total_sum": 1296.0,
+  "product_7day_total_sum": 1226.006
+}

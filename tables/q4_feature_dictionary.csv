@@ -1,0 +1,10 @@
+﻿feature,meaning,reason
+lag_1,前 1 天同门店同商品销量,历史销量滞后项
+lag_7,前 7 天同门店同商品销量,同星期历史需求
+lag_14,前 14 天同门店同商品销量,两周前需求
+rolling_mean_7,前 7 天滚动均值,短期销量水平
+rolling_mean_14,前 14 天滚动均值,较平滑销量水平
+weekday/month/is_weekend,星期、月份、周末,日历规律
+store/product/category,门店、商品、类别,固定需求差异
+weather/temperature/wind,天气、温度、风力,外部环境情景
+is_holiday/is_activity_day,节假日、活动日,日历与促销情景

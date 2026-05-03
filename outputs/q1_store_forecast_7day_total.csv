@@ -1,0 +1,8 @@
+﻿store_id,store_name,model,model_label,predicted_7day_sales
+69,B地江山店店,moving_average_7,移动平均(7日),309.0
+178,C地五乡镇店,moving_average_7,移动平均(7日),280.0
+18,A地天九街店,moving_average_7,移动平均(7日),245.0
+23,C地姜山店,moving_average_7,移动平均(7日),203.0
+14,C地彩虹南路店,moving_average_7,移动平均(7日),125.0
+47,C地桑田路店,moving_average_7,移动平均(7日),115.0
+276,A地双桥路店,moving_average_7,移动平均(7日),19.0

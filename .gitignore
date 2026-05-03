@@ -1,0 +1,23 @@
+# Python/cache
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Local environments and secrets
+.venv/
+venv/
+.env
+.env.*
+
+# Local backups generated during staged modeling work
+*.backup*
+*.bak
+*.tmp
+
+# OS/editor metadata
+.DS_Store
+Thumbs.db
+
+# Local packaging artifacts
+dist/
+*.zip
