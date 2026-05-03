@@ -1,0 +1,73 @@
+\section{问题三：外部因素统计关联分析}
+
+问题三分析天气、节假日、活动日等外部因素与零食销量之间的统计关联。本文将外部因素构造为分类变量和连续变量：天气类型合并为更稳定的天气组，最高温、最低温、平均温度、昼夜温差和风力为连续变量，节假日、周末、活动日为 0--1 变量，星期、月份、门店、商品和历史销量作为控制变量。原始附件中没有湿度字段，因此不构造湿度变量。
+
+\subsection{描述性分析}
+
+对某一外部因素 $G$，先计算不同分组下的平均销量：
+\begin{equation}
+\bar y_g=\frac{1}{n_g}\sum_{i:G_i=g}y_i.
+\end{equation}
+该方法直观，但不能控制门店、商品和星期等混杂因素，只作为现象展示。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{q3_binary_factor_mean_sales.png}
+\caption{二元外部因素均值差异，用于展示节假日、周末和活动日下的描述性销量差异}
+\label{fig:q3_binary}
+\end{figure}
+
+\subsection{固定效应回归模型}
+
+问题三主模型采用“合并天气 + 对数销量 + 历史控制固定效应回归”。设
+$z_{s,p,t}=\log(1+y_{s,p,t})$，模型形式为
+\begin{equation}
+z_{s,p,t}=\beta_0+\beta^\top External_t+\rho_1 lag7_{s,p,t}
++\rho_2 rolling28_{s,p,t}+\gamma_s+\delta_p+\eta_w+\mu_m+\varepsilon_{s,p,t}.
+\end{equation}
+其中，$External_t$ 包括合并天气类别、平均温度、昼夜温差、风力、节假日和活动日；$\gamma_s$、$\delta_p$、$\eta_w$、$\mu_m$ 分别表示门店、商品、星期和月份固定效应；\texttt{lag\_7} 和 \texttt{rolling\_28\_prev} 只使用过去销量。线性回归和固定效应思想参考 \cite{montgomery2012regression}。
+
+选择该模型的原因是：详细天气类别中存在雨夹雪、暴雨等少数样本天气，直接排序容易不稳；原始销量分布偏斜，对极端销量敏感；加入历史控制项后能减少基础需求差异对外部变量系数的干扰。
+
+方法探索验证指标见表 \ref{tab:q3_methods}。
+
+\begin{table}[H]
+\centering
+\caption{问题三外部因素分析方法验证指标}
+\label{tab:q3_methods}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lrrrl}
+\toprule
+方法 & MAE & RMSE & WAPE & 论文定位 \\
+\midrule
+原方案详细天气 FE 回归 & 1.969 & 4.144 & 88.09\% & 补充 \\
+合并天气 + 对数销量 + 历史控制 FE 回归 & 1.890 & 4.448 & 84.53\% & 主分析 \\
+温度分箱 + 对数销量 + 历史控制 FE 回归 & 1.889 & 4.445 & 84.51\% & 非线性检查 \\
+去异常日 + 对数销量 + 历史控制 FE 回归 & 1.825 & 4.254 & 84.94\% & 稳健性检查 \\
+随机森林 grouped weather + history & 1.892 & 4.178 & 84.66\% & 预测贡献补充 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.86\textwidth]{q3_regression_factor_effect_ranking.png}
+\caption{回归关联强度排序，用于展示外部变量在控制部分混杂因素后的可比统计关联}
+\label{fig:q3_regression}
+\end{figure}
+
+\subsection{机器学习辅助分析}
+
+随机森林置换重要性用于补充判断非线性预测贡献 \cite{breiman2001random}。它能说明打乱某一特征后预测误差增加多少，但不能说明销量变化方向，也不能证明因果关系。因此，问题三最终结论以回归的统计关联方向为主，以随机森林重要性作为辅助排序依据。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\textwidth]{q3_random_forest_permutation_importance.png}
+\caption{随机森林置换重要性，用于展示非线性模型中的预测贡献}
+\label{fig:q3_rf}
+\end{figure}
+
+\subsection{问题三结果}
+
+描述性统计显示，不同天气、节假日、周末和活动日下的平均销量存在差异，但这些差异可能与门店、商品、星期和月份同时相关。固定效应回归和稳健性检查表明，活动日变量与销量上升之间的统计关联相对更稳定；天气变量存在一定关联，但细分天气类别受样本量限制；节假日和周末与星期效应、月份季节性重叠，结论应作为辅助。本文不分析湿度，因为附件中没有湿度字段。

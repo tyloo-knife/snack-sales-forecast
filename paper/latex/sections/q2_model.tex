@@ -1,0 +1,74 @@
+\section{问题二：商品关联分析与类别聚合预测}
+
+问题二关注同一门店中不同零食销量之间的联系，并要求整合同类零食预测未来 7 天总销量。设 $y_{t,p}$ 表示第 $t$ 天商品 $p$ 的正向销量，$c(p)$ 表示商品所属类别。
+
+\subsection{商品销量矩阵与相关性}
+
+对每个门店构造日期 $\times$ 商品销量矩阵：
+\begin{equation}
+Y_s=(y_{t,p}),\quad t=1,\ldots,n,\ p=1,\ldots,m.
+\end{equation}
+商品 $p$ 与商品 $q$ 的 Pearson 相关系数为
+\begin{equation}
+r_{pq}=
+\frac{\sum_t(y_{t,p}-\bar y_p)(y_{t,q}-\bar y_q)}
+{\sqrt{\sum_t(y_{t,p}-\bar y_p)^2}\sqrt{\sum_t(y_{t,q}-\bar y_q)^2}}.
+\end{equation}
+为避免单一 Pearson 相关造成过度解释，本文补充 Spearman 相关、去星期效应 Pearson 和门店内相关稳定性检查。商品关联结论只解释为同步波动，不写成因果或替代关系。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{q2_overall_product_correlation_heatmap.png}
+\caption{商品相关性热力图，用于展示商品日销量同步波动结构}
+\label{fig:q2_corr}
+\end{figure}
+
+\subsection{同类零食整合}
+
+类别聚合按附件 \texttt{category} 字段进行：
+\begin{equation}
+Y_{t,g}=\sum_{p:c(p)=g}y_{t,p}.
+\end{equation}
+该字段具有业务含义，因此作为“同类零食”的正式聚合依据。相关性聚类和销量规模分组可作为补充探索，但不替代附件业务类别。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.94\textwidth]{q2_category_daily_trend.png}
+\caption{类别日销量趋势，用于观察类别层面的时间波动}
+\label{fig:q2_category_trend}
+\end{figure}
+
+\subsection{类别预测与误差比较}
+
+本文比较“单品预测后按类别加总”和“类别聚合后直接预测”。验证结果见表 \ref{tab:q2_metrics}。
+
+\begin{table}[H]
+\centering
+\caption{问题二类别预测策略误差比较}
+\label{tab:q2_metrics}
+\begin{tabular}{llrrr}
+\toprule
+方法 & 模型 & MAE & RMSE & WAPE \\
+\midrule
+类别聚合后直接预测 & 简单指数平滑 & 7.853 & 13.933 & 34.74\% \\
+单品预测后按类别加总 & 简单指数平滑 & 7.873 & 13.949 & 34.83\% \\
+类别聚合后直接预测 & 移动平均(7日) & 8.246 & 14.174 & 36.48\% \\
+类别聚合后直接预测 & 同星期均值(近8周) & 8.851 & 15.057 & 39.15\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\textwidth]{q2_category_method_wape_comparison.png}
+\caption{类别预测方法 WAPE 对比，用于比较聚合后直接预测和单品预测后加总}
+\label{fig:q2_wape}
+\end{figure}
+
+因此，问题二主方案采用“附件类别聚合后直接预测 + 简单指数平滑”。相关性聚类 WAPE=31.02\%，销量规模分组 WAPE=24.24\%，但前者业务类别含义弱，后者预测对象变成高/中/低销量组，均不替代附件类别主方案。
+
+\subsection{问题二结果}
+
+商品关联分析表明，全部门店汇总层面存在 2 对强正相关商品对和 25 对弱相关商品对。强正相关只能说明历史日销量同步波动，可能共同受客流、消费场景或促销节奏影响，不能证明商品之间存在直接带动关系。负相关候选的相关系数绝对值较小，当前数据未发现强替代关系证据。
+
+类别预测结果显示，未来 7 天预测最高的类别为包装散称，预测 389.613；其次为功能饮料，预测 286.719；碳酸饮料预测 247.326。类别聚合可以降低单品零销量和偶然大单带来的波动，但会损失同一类别内部商品差异。

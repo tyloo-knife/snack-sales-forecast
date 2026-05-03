@@ -1,0 +1,23 @@
+\section{数据预处理}
+
+\subsection{数据检查}
+
+销售数据日期范围为 2020-04-01 至 2022-03-31，含 7 家门店、12 个商品代码、13 个商品名称和 8 个类别。商品代码 11001020 对应两个海苔商品名称，经人工确认以商品编号为准，名称差异视为录入笔误。天气数据日期范围为 2020-03-01 至 2022-03-30，不能覆盖销售最后一天 2022-03-31 和未来 2022-04-01 至 2022-04-07。
+
+数据质量检查发现：销售明细中完全重复行 16605 条，经人工确认保留；负销量记录 54 条，作为损耗/冲销类负向调整；交易级数量范围为 -24 至 2712，IQR 规则标记 5536 条交易级极端记录。本文不删除原始记录，而是在处理表中保留正向销量、负向调整和异常标记。详细检查结果见 \path{outputs/stage1_data_inspection_report.md}。
+
+\subsection{日销量面板构造}
+
+本文将交易明细聚合为日期--门店--商品日销量面板，并补齐出现过的门店--商品组合在完整日期上的零销量记录。输出表 \path{data/processed/daily_store_product_sales.csv} 含 59130 行，日期范围为 2020-04-01 至 2022-03-31。合并外部变量后得到 \path{data/processed/modeling_base_table.csv}，同样为 59130 行。
+
+日销量字段包括：
+\begin{itemize}
+  \item \texttt{daily\_sales}：日净销量，包含负向调整；
+  \item \texttt{positive\_sales}：正向销售数量，作为主预测目标；
+  \item \texttt{negative\_adjustment\_qty}：负向调整数量绝对值；
+  \item \texttt{has\_external\_data}：是否成功匹配附件二外部变量。
+\end{itemize}
+
+\subsection{外部变量处理}
+
+附件二的“温度”和“温度.1”经人工确认为最高温和最低温，分别记为 \texttt{max\_temperature} 和 \texttt{min\_temperature}；“活动日”确认为门店促销活动日；“工休日”表示周末/节假日等休息日。缺少外部变量的销售日期为 2022-03-31，对应合并后 81 行 \texttt{has\_external\_data=0}。未来 7 天没有附件真实天气和活动日观测，本文在问题四中采用历史同期情景，并明确其条件预测性质。
