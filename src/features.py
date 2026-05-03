@@ -185,6 +185,30 @@ def add_leakage_safe_sales_features(
     return out.reset_index(drop=True)
 
 
+def sales_history_feature_row(values: list[float]) -> dict[str, float]:
+    """Create lag and rolling sales features from a mutable history list.
+
+    The caller controls what goes into ``values``. For strict recursive
+    validation or future forecasting, append predictions after the window starts
+    so lag and rolling features do not use unavailable real sales.
+    """
+    values = [float(v) for v in values if pd.notna(v)]
+
+    def lag(k: int) -> float:
+        return float(values[-k]) if len(values) >= k else 0.0
+
+    recent7 = values[-7:] if values else [0.0]
+    recent14 = values[-14:] if values else [0.0]
+    return {
+        "lag_1": lag(1),
+        "lag_7": lag(7),
+        "lag_14": lag(14),
+        "rolling_mean_7": float(np.mean(recent7)),
+        "rolling_mean_14": float(np.mean(recent14)),
+        "rolling_std_7": float(np.std(recent7, ddof=1)) if len(recent7) >= 2 else 0.0,
+    }
+
+
 def build_future_external_scenario(
     history: pd.DataFrame,
     future_dates: pd.DatetimeIndex,

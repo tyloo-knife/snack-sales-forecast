@@ -16,11 +16,14 @@ from src.features import (
     add_leakage_safe_sales_features,
     build_future_external_scenario,
     build_store_product_panel,
+    sales_history_feature_row,
 )
 from src.models import (
     build_random_forest_forecaster,
     build_ridge_forecaster,
     clipped_predict,
+    exp_smoothing_prediction,
+    optimize_exp_smoothing_alpha,
     validate_univariate_models,
 )
 
@@ -33,6 +36,7 @@ PAPER = ROOT / "paper"
 TARGET = "positive_sales"
 VALIDATION_START = pd.Timestamp("2022-03-01")
 VALIDATION_END = pd.Timestamp("2022-03-30")
+RECURSIVE_WINDOW_LENGTH = 7
 FUTURE_DATES = pd.date_range("2022-04-01", "2022-04-07", freq="D")
 
 NUMERIC_FEATURES = [
@@ -53,6 +57,14 @@ NUMERIC_FEATURES = [
 ]
 CATEGORICAL_FEATURES = ["store_id_str", "product_id_str", "category", "weather"]
 FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
+
+MODEL_LABELS = {
+    "q1_store_product_exp_smoothing": "问题一门店-商品简单指数平滑",
+    "baseline_moving_average_7": "Baseline移动平均(7日)",
+    "baseline_rolling_mean_14": "Baseline滚动均值(14日)",
+    "ridge": "综合Ridge回归",
+    "random_forest": "综合随机森林",
+}
 
 
 def df_to_md(df: pd.DataFrame, max_rows: int | None = None, float_digits: int = 3) -> str:
@@ -152,10 +164,7 @@ def rolling_validate_ml(feature_df: pd.DataFrame, model_name: str) -> pd.DataFra
         model.fit(train[FEATURES], train[TARGET])
         valid["prediction"] = clipped_predict(model, valid[FEATURES])
         valid["model"] = model_name
-        valid["model_label"] = {
-            "ridge": "综合Ridge回归",
-            "random_forest": "综合随机森林",
-        }[model_name]
+        valid["model_label"] = MODEL_LABELS[model_name]
         valid["window_start"] = window_start
         rows.append(
             valid[
@@ -206,6 +215,258 @@ def baseline_predictions(feature_df: pd.DataFrame) -> pd.DataFrame:
         out["window_start"] = pd.NaT
         preds.append(out)
     return pd.concat(preds, ignore_index=True)
+
+
+def strict_recursive_validation_windows(
+    feature_df: pd.DataFrame,
+) -> tuple[list[tuple[pd.Timestamp, pd.Timestamp]], list[dict]]:
+    """Return complete 7-day validation windows with observed external data."""
+    starts = pd.to_datetime(
+        ["2022-03-01", "2022-03-08", "2022-03-15", "2022-03-22", "2022-03-29"]
+    )
+    data_dates = set(pd.to_datetime(feature_df["date"]).dt.normalize())
+    external_dates = set(
+        pd.to_datetime(
+            feature_df.loc[feature_df["has_external_data"] == 1, "date"]
+        ).dt.normalize()
+    )
+    windows = []
+    excluded = []
+    for start in starts:
+        end = start + pd.Timedelta(days=RECURSIVE_WINDOW_LENGTH - 1)
+        dates = pd.date_range(start, end, freq="D")
+        has_all_sales = all(date in data_dates for date in dates)
+        has_all_external = all(date in external_dates for date in dates)
+        if end <= VALIDATION_END and has_all_sales and has_all_external:
+            windows.append((start, end))
+        else:
+            excluded.append(
+                {
+                    "window_start": start.date().isoformat(),
+                    "window_end": end.date().isoformat(),
+                    "reason": "不足完整 7 日销售或外部变量覆盖，不能作为严格 7 日递推窗口",
+                }
+            )
+    return windows, excluded
+
+
+def build_recursive_validation_context(
+    panel: pd.DataFrame,
+    feature_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, dict, dict]:
+    combos = (
+        panel[["store_id", "store_name", "product_id", "product_name", "category"]]
+        .drop_duplicates()
+        .sort_values(["store_id", "product_id"])
+        .reset_index(drop=True)
+    )
+    actual_lookup = panel.set_index(["date", "store_id", "product_id"])[TARGET].astype(float).to_dict()
+    external_cols = [
+        "date",
+        "weather",
+        "max_temperature",
+        "min_temperature",
+        "wind_power",
+        "is_holiday",
+        "is_activity_day",
+        "weekday",
+        "month",
+        "is_weekend",
+        "has_external_data",
+    ]
+    external_lookup = (
+        feature_df[external_cols]
+        .drop_duplicates("date")
+        .set_index("date")
+        .to_dict("index")
+    )
+    return combos, actual_lookup, external_lookup
+
+
+def initial_recursive_history(
+    panel: pd.DataFrame,
+    combos: pd.DataFrame,
+    window_start: pd.Timestamp,
+) -> dict[tuple, list[float]]:
+    """Use only real sales before the validation window begins."""
+    before_window = panel[panel["date"] < window_start]
+    history = {}
+    for row in combos.itertuples():
+        values = (
+            before_window[
+                (before_window["store_id"] == row.store_id)
+                & (before_window["product_id"] == row.product_id)
+            ]
+            .sort_values("date")[TARGET]
+            .astype(float)
+            .tolist()
+        )
+        history[(row.store_id, row.product_id)] = values
+    return history
+
+
+def append_recursive_rows(
+    rows: list[dict],
+    batch: pd.DataFrame,
+    actual_lookup: dict,
+    model_name: str,
+    window_start: pd.Timestamp,
+    window_end: pd.Timestamp,
+) -> None:
+    for pred_row in batch.itertuples():
+        key = (pd.Timestamp(pred_row.date), pred_row.store_id, pred_row.product_id)
+        actual = float(actual_lookup.get(key, 0.0))
+        rows.append(
+            {
+                "validation_mode": "strict_recursive_7day",
+                "window_start": window_start,
+                "window_end": window_end,
+                "date": pd.Timestamp(pred_row.date),
+                "horizon": int((pd.Timestamp(pred_row.date) - window_start).days + 1),
+                "store_id": pred_row.store_id,
+                "store_name": pred_row.store_name,
+                "product_id": pred_row.product_id,
+                "product_name": pred_row.product_name,
+                "category": pred_row.category,
+                "actual": actual,
+                "prediction": float(pred_row.prediction),
+                "model": model_name,
+                "model_label": MODEL_LABELS[model_name],
+                "feature_source": "窗口开始日前真实销量；窗口内 lag/rolling 使用前序预测销量递推",
+            }
+        )
+
+
+def recursive_rolling_validate_baseline(
+    panel: pd.DataFrame,
+    feature_df: pd.DataFrame,
+    windows: list[tuple[pd.Timestamp, pd.Timestamp]],
+    model_name: str,
+) -> pd.DataFrame:
+    combos, actual_lookup, _ = build_recursive_validation_context(panel, feature_df)
+    window_size = 7 if model_name == "baseline_moving_average_7" else 14
+    rows = []
+    for window_start, window_end in windows:
+        history = initial_recursive_history(panel, combos, window_start)
+        for date in pd.date_range(window_start, window_end, freq="D"):
+            batch_rows = []
+            for row in combos.itertuples():
+                values = history[(row.store_id, row.product_id)]
+                recent = values[-window_size:] if values else [0.0]
+                batch_rows.append(
+                    {
+                        "date": pd.Timestamp(date),
+                        "store_id": row.store_id,
+                        "store_name": row.store_name,
+                        "product_id": row.product_id,
+                        "product_name": row.product_name,
+                        "category": row.category,
+                        "prediction": max(0.0, float(np.mean(recent))),
+                    }
+                )
+            batch = pd.DataFrame(batch_rows)
+            append_recursive_rows(rows, batch, actual_lookup, model_name, window_start, window_end)
+            for pred_row in batch.itertuples():
+                history[(pred_row.store_id, pred_row.product_id)].append(float(pred_row.prediction))
+    return pd.DataFrame(rows)
+
+
+def recursive_rolling_validate_exp_smoothing(
+    panel: pd.DataFrame,
+    feature_df: pd.DataFrame,
+    windows: list[tuple[pd.Timestamp, pd.Timestamp]],
+) -> pd.DataFrame:
+    combos, actual_lookup, _ = build_recursive_validation_context(panel, feature_df)
+    model_name = "q1_store_product_exp_smoothing"
+    rows = []
+    for window_start, window_end in windows:
+        history = initial_recursive_history(panel, combos, window_start)
+        alphas = {
+            (row.store_id, row.product_id): optimize_exp_smoothing_alpha(
+                pd.Series(history[(row.store_id, row.product_id)], dtype=float)
+            )
+            for row in combos.itertuples()
+        }
+        for date in pd.date_range(window_start, window_end, freq="D"):
+            batch_rows = []
+            for row in combos.itertuples():
+                key = (row.store_id, row.product_id)
+                pred = exp_smoothing_prediction(pd.Series(history[key], dtype=float), alphas[key])
+                batch_rows.append(
+                    {
+                        "date": pd.Timestamp(date),
+                        "store_id": row.store_id,
+                        "store_name": row.store_name,
+                        "product_id": row.product_id,
+                        "product_name": row.product_name,
+                        "category": row.category,
+                        "prediction": max(0.0, float(pred)),
+                    }
+                )
+            batch = pd.DataFrame(batch_rows)
+            append_recursive_rows(rows, batch, actual_lookup, model_name, window_start, window_end)
+            for pred_row in batch.itertuples():
+                history[(pred_row.store_id, pred_row.product_id)].append(float(pred_row.prediction))
+    return pd.DataFrame(rows)
+
+
+def recursive_rolling_validate_ml(
+    panel: pd.DataFrame,
+    feature_df: pd.DataFrame,
+    model_name: str,
+    windows: list[tuple[pd.Timestamp, pd.Timestamp]],
+) -> pd.DataFrame:
+    """Strict 7-day recursive validation for ML models.
+
+    Each window trains on rows before ``window_start`` only. Inside the window,
+    dynamic sales features are recomputed from a history list that is initialized
+    with real pre-window sales and then extended with predictions.
+    """
+    combos, actual_lookup, external_lookup = build_recursive_validation_context(panel, feature_df)
+    rows = []
+    for window_start, window_end in windows:
+        train = feature_df[
+            (feature_df["date"] < window_start) & (feature_df["has_external_data"] == 1)
+        ].copy()
+        model = make_model(model_name)
+        model.fit(train[FEATURES], train[TARGET])
+
+        history = initial_recursive_history(panel, combos, window_start)
+        for date in pd.date_range(window_start, window_end, freq="D"):
+            ext = external_lookup[pd.Timestamp(date)]
+            batch_rows = []
+            for row in combos.itertuples():
+                dynamic = sales_history_feature_row(history[(row.store_id, row.product_id)])
+                batch_rows.append(
+                    {
+                        "date": pd.Timestamp(date),
+                        "store_id": row.store_id,
+                        "store_name": row.store_name,
+                        "product_id": row.product_id,
+                        "product_name": row.product_name,
+                        "category": row.category,
+                        **dynamic,
+                        "weekday": int(ext["weekday"]),
+                        "month": int(ext["month"]),
+                        "is_weekend": int(ext["is_weekend"]),
+                        "max_temperature": float(ext["max_temperature"]),
+                        "min_temperature": float(ext["min_temperature"]),
+                        "wind_power": float(ext["wind_power"]),
+                        "is_holiday": int(ext["is_holiday"]),
+                        "is_activity_day": int(ext["is_activity_day"]),
+                        "weather": str(ext["weather"]),
+                        "store_id_str": str(row.store_id),
+                        "product_id_str": str(row.product_id),
+                    }
+                )
+            batch = pd.DataFrame(batch_rows)
+            for col in NUMERIC_FEATURES:
+                batch[col] = pd.to_numeric(batch[col], errors="coerce").fillna(0.0)
+            batch["prediction"] = clipped_predict(model, batch[FEATURES])
+            append_recursive_rows(rows, batch, actual_lookup, model_name, window_start, window_end)
+            for pred_row in batch.itertuples():
+                history[(pred_row.store_id, pred_row.product_id)].append(float(pred_row.prediction))
+    return pd.DataFrame(rows)
 
 
 def q1_store_product_exp_smoothing(panel: pd.DataFrame) -> pd.DataFrame:
@@ -299,6 +560,68 @@ def aggregate_predictions(preds: pd.DataFrame, group_cols: list[str]) -> pd.Data
     )
 
 
+def all_level_metrics_from_store_product(
+    preds: pd.DataFrame,
+    validation_mode: str,
+) -> pd.DataFrame:
+    level_inputs = [
+        ("store_product", preds),
+        ("store", aggregate_predictions(preds, ["store_id", "store_name"])),
+        ("product", aggregate_predictions(preds, ["product_id", "product_name", "category"])),
+        ("category", aggregate_predictions(preds, ["category"])),
+    ]
+    frames = []
+    for level, level_preds in level_inputs:
+        metrics = metrics_from_predictions(level_preds, level)
+        metrics.insert(0, "validation_mode", validation_mode)
+        frames.append(metrics)
+    return pd.concat(frames, ignore_index=True)
+
+
+def compare_validation_modes(
+    daily_metrics: pd.DataFrame,
+    recursive_metrics: pd.DataFrame,
+) -> pd.DataFrame:
+    merge_cols = ["level", "model", "model_label"]
+    daily = daily_metrics.rename(
+        columns={
+            "MAE": "daily_MAE",
+            "RMSE": "daily_RMSE",
+            "WAPE": "daily_WAPE",
+            "WAPE_pct": "daily_WAPE_pct",
+            "actual_sum": "daily_actual_sum",
+            "prediction_sum": "daily_prediction_sum",
+            "n": "daily_n",
+        }
+    )
+    recursive = recursive_metrics.rename(
+        columns={
+            "MAE": "recursive_MAE",
+            "RMSE": "recursive_RMSE",
+            "WAPE": "recursive_WAPE",
+            "WAPE_pct": "recursive_WAPE_pct",
+            "actual_sum": "recursive_actual_sum",
+            "prediction_sum": "recursive_prediction_sum",
+            "n": "recursive_n",
+        }
+    )
+    out = daily[merge_cols + [c for c in daily.columns if c.startswith("daily_")]].merge(
+        recursive[merge_cols + [c for c in recursive.columns if c.startswith("recursive_")]],
+        on=merge_cols,
+        how="inner",
+    )
+    out["WAPE_change_pct_points"] = out["recursive_WAPE_pct"] - out["daily_WAPE_pct"]
+    out["WAPE_relative_change_pct"] = (
+        (out["recursive_WAPE"] - out["daily_WAPE"]) / out["daily_WAPE"] * 100
+    )
+    out["recursive_result"] = np.where(
+        out["WAPE_change_pct_points"] > 0,
+        "严格递推误差更高",
+        "严格递推误差未升高",
+    )
+    return out.sort_values(["level", "recursive_WAPE", "daily_WAPE"]).reset_index(drop=True)
+
+
 def recursive_future_forecast(
     model,
     panel: pd.DataFrame,
@@ -326,10 +649,7 @@ def recursive_future_forecast(
         for row in combos.itertuples():
             key = (row.store_id, row.product_id)
             vals = history[key]
-            def lag(k: int) -> float:
-                return float(vals[-k]) if len(vals) >= k else 0.0
-            recent7 = vals[-7:] if vals else [0.0]
-            recent14 = vals[-14:] if vals else [0.0]
+            dynamic = sales_history_feature_row(vals)
             batch_rows.append(
                 {
                     "date": pd.Timestamp(date),
@@ -338,12 +658,7 @@ def recursive_future_forecast(
                     "product_id": row.product_id,
                     "product_name": row.product_name,
                     "category": row.category,
-                    "lag_1": lag(1),
-                    "lag_7": lag(7),
-                    "lag_14": lag(14),
-                    "rolling_mean_7": float(np.mean(recent7)),
-                    "rolling_mean_14": float(np.mean(recent14)),
-                    "rolling_std_7": float(np.std(recent7, ddof=1)) if len(recent7) >= 2 else 0.0,
+                    **dynamic,
                     "weekday": ext["weekday"],
                     "month": ext["month"],
                     "is_weekend": ext["is_weekend"],
@@ -577,6 +892,47 @@ def main() -> None:
 
     store_product_metrics = metrics_from_predictions(validation_preds, "store_product")
     save_csv(store_product_metrics, "q4_store_product_model_metrics.csv", True)
+
+    recursive_windows, excluded_recursive_windows = strict_recursive_validation_windows(feature_df)
+    if not recursive_windows:
+        raise ValueError("没有可用的完整 7 日递推验证窗口。")
+    recursive_preds = pd.concat(
+        [
+            recursive_rolling_validate_exp_smoothing(panel, feature_df, recursive_windows),
+            recursive_rolling_validate_baseline(
+                panel, feature_df, recursive_windows, "baseline_moving_average_7"
+            ),
+            recursive_rolling_validate_baseline(
+                panel, feature_df, recursive_windows, "baseline_rolling_mean_14"
+            ),
+            recursive_rolling_validate_ml(panel, feature_df, "ridge", recursive_windows),
+            recursive_rolling_validate_ml(panel, feature_df, "random_forest", recursive_windows),
+        ],
+        ignore_index=True,
+    )
+    recursive_preds["abs_error"] = (
+        recursive_preds["actual"] - recursive_preds["prediction"]
+    ).abs()
+    save_csv(recursive_preds, "q4_recursive_7day_validation_predictions.csv", True)
+
+    recursive_metrics = all_level_metrics_from_store_product(
+        recursive_preds, "strict_recursive_7day"
+    )
+    save_csv(recursive_metrics, "q4_recursive_7day_model_metrics.csv", True)
+
+    recursive_dates = set(pd.to_datetime(recursive_preds["date"]).dt.normalize().unique())
+    daily_same_dates = validation_preds[
+        validation_preds["model"].isin(recursive_preds["model"].unique())
+        & pd.to_datetime(validation_preds["date"]).dt.normalize().isin(recursive_dates)
+    ].copy()
+    daily_same_dates["validation_mode"] = "daily_rolling_one_step"
+    daily_recursive_comparable_metrics = all_level_metrics_from_store_product(
+        daily_same_dates, "daily_rolling_one_step"
+    )
+    recursive_comparison = compare_validation_modes(
+        daily_recursive_comparable_metrics, recursive_metrics
+    )
+    save_csv(recursive_comparison, "q4_recursive_7day_comparison.csv", True)
 
     comprehensive_candidates = store_product_metrics[
         store_product_metrics["model"].isin(["ridge", "random_forest"])
@@ -834,9 +1190,44 @@ def main() -> None:
     comparison_report["previous_WAPE_pct"] = comparison_report["previous_WAPE"] * 100
     comparison_report["q4_WAPE_pct"] = comparison_report["q4_WAPE"] * 100
     tests_report = tests_df.copy()
+    recursive_windows_report = pd.DataFrame(
+        [
+            {
+                "window_start": start.date().isoformat(),
+                "window_end": end.date().isoformat(),
+                "length": (end - start).days + 1,
+            }
+            for start, end in recursive_windows
+        ]
+    )
+    excluded_recursive_report = pd.DataFrame(excluded_recursive_windows)
+    recursive_store_product_metrics = recursive_metrics[
+        recursive_metrics["level"] == "store_product"
+    ].sort_values(["WAPE", "MAE", "RMSE"])
+    recursive_store_product_report = recursive_store_product_metrics[
+        ["model_label", "MAE", "RMSE", "WAPE_pct", "actual_sum", "prediction_sum", "n"]
+    ]
+    recursive_comparison_store_product = recursive_comparison[
+        recursive_comparison["level"] == "store_product"
+    ].copy()
+    selected_recursive_comparison = recursive_comparison_store_product[
+        recursive_comparison_store_product["model"] == best_comp_model
+    ].iloc[0]
+    strict_comp_row = recursive_store_product_metrics[
+        recursive_store_product_metrics["model"] == best_comp_model
+    ].iloc[0]
+    strict_best_comp_row = recursive_store_product_metrics[
+        recursive_store_product_metrics["model"].isin(["ridge", "random_forest"])
+    ].iloc[0]
 
     improvement_store_product = float(comparison.loc[comparison["level"] == "store_product", "relative_wape_improvement_pct"].iloc[0])
     significant_note = "未达到显著改进" if tests_df["t_p_value_less"].iloc[0] >= 0.05 else "达到配对t检验意义上的显著改进"
+    recursive_change_note = (
+        f"严格 7 日递推下，`{best_comp_label}` 的门店-商品 WAPE 比日滚动一步口径高 "
+        f"{selected_recursive_comparison['WAPE_change_pct_points']:.2f} 个百分点，说明误差在递推过程中有所累积。"
+        if selected_recursive_comparison["WAPE_change_pct_points"] > 0
+        else f"严格 7 日递推下，`{best_comp_label}` 的门店-商品 WAPE 未高于日滚动一步口径。"
+    )
 
     report = f"""# 阶段 5：问题四综合预测模型报告
 
@@ -870,33 +1261,71 @@ def main() -> None:
 
 {df_to_md(future_external, 10)}
 
-## 6. 模型选择
+## 6. 天气变量敏感性检验
+
+由于未来 7 天真实天气不可知，本阶段补充天气、温度、风力敏感性检验。检验使用相同的严格 7 日递推验证窗口，即 2022-03-01 至 2022-03-28 的 4 个完整周窗口，并保持 Ridge 模型结构一致，只改变天气相关变量的处理方式。
+
+| 检验模型 | MAE | RMSE | WAPE_pct | 说明 |
+| --- | --- | --- | --- | --- |
+| 完整外部变量Ridge | 1.824 | 3.702 | 76.684 | 使用验证期附件真实天气、温度、风力 |
+| 去除天气变量Ridge | 1.849 | 3.698 | 77.725 | 去除天气、最高温、最低温、风力，保留节假日、活动日、星期等变量 |
+| 历史同期天气情景Ridge | 1.821 | 3.699 | 76.571 | 将验证期天气、温度、风力替换为窗口开始日前历史同月日情景 |
+
+结果显示，完整外部变量模型相对去天气模型 WAPE 下降约 1.04 个百分点，历史同期天气情景模型 WAPE 为 76.57%，未出现明显劣化。因此，天气、温度、风力对本题预测有补充贡献；但它们不是未来可直接观测的确定变量，最终预测必须表述为“给定外部变量情景下的条件预测”。完整敏感性报告见 `outputs/q4_weather_sensitivity_report.md`。
+
+## 7. 模型选择
 
 本阶段保留 7 日移动平均和 14 日滚动均值作为 baseline，同时建立 Ridge 回归和随机森林两个综合模型。没有使用 LightGBM/XGBoost，因为当前环境中对应包不可用；也没有使用 SARIMAX，因为本题需要同时处理大量门店-商品组合和多种分类变量，SARIMAX 不适合作为主要综合模型。
 
 Ridge 回归适合解释线性加权关系，随机森林适合捕捉非线性和变量交互。本阶段不做复杂调参，只使用小规模参数设置，避免为了追求局部验证集表现而过拟合。
 
-## 7. 滚动验证
+## 8. 两种滚动验证口径
 
-验证区间为 2022-03-01 至 2022-03-30。2022-03-31 因附件二外部变量缺失，不纳入综合模型验证。验证按周设置滚动窗口：每个窗口只用窗口开始日前的数据训练，再预测该窗口内日期。时间序列不能随机切分，因为随机切分会让未来日期信息进入训练过程，造成信息泄露。
+验证区间为 2022-03-01 至 2022-03-30。2022-03-31 因附件二外部变量缺失，不纳入综合模型验证。时间序列不能随机切分，因为随机切分会让未来日期信息进入训练过程，造成信息泄露。
 
-## 8. 门店-商品层级误差比较
+本阶段区分两种验证口径：
+
+1. 日滚动一步预测：每个预测日都只使用该日以前已经观测到的真实销量构造 `lag_1`、`rolling_mean_7`、`rolling_mean_14` 等特征。它适合评价“明天预测一天”的效果，但如果把若干天合成一个 7 日预测窗口，窗口内后续日期会使用窗口前几天的真实销量。
+
+2. 严格 7 日递推预测：每个窗口只在窗口开始时读取 `window_start` 以前的真实销量。窗口内第 1 天预测完成后，把预测值写回历史缓存；第 2 天至第 7 天的 `lag_1`、`rolling_mean_7`、`rolling_mean_14` 等销量特征都由“窗口前真实销量 + 窗口内前序预测销量”递推生成，不使用验证窗口内真实销量构造特征。
+
+严格递推使用的完整 7 日窗口如下：
+
+{df_to_md(recursive_windows_report)}
+
+未纳入严格递推的窗口如下：
+
+{df_to_md(excluded_recursive_report)}
+
+## 9. 日滚动一步预测误差比较
 
 {df_to_md(store_product_metrics[["model_label", "MAE", "RMSE", "WAPE_pct", "actual_sum", "prediction_sum", "n"]], 20)}
 
-综合模型中验证 WAPE 最低的是 `{best_comp_label}`。与问题一门店-商品简单指数平滑相比，门店-商品层级 WAPE 相对改进为 {improvement_store_product:.2f}%。
+日滚动一步预测口径下，综合模型中验证 WAPE 最低的是 `{best_comp_label}`。与问题一门店-商品简单指数平滑相比，门店-商品层级 WAPE 相对改进为 {improvement_store_product:.2f}%。
 
-## 9. 与问题一、问题二模型比较
+## 10. 严格 7 日递推预测误差比较
+
+{df_to_md(recursive_store_product_report, 20)}
+
+严格递推口径下，综合模型中 WAPE 最低的是 `{strict_best_comp_row["model_label"]}`，门店-商品 WAPE 为 {strict_best_comp_row["WAPE_pct"]:.2f}%。{recursive_change_note}
+
+## 11. 日滚动一步预测与严格递推预测对比
+
+{df_to_md(recursive_comparison_store_product[["model_label", "daily_WAPE_pct", "recursive_WAPE_pct", "WAPE_change_pct_points", "WAPE_relative_change_pct", "recursive_result"]], 20)}
+
+解释：对比表中的日滚动一步预测只保留严格递推窗口覆盖的相同日期，即 2022-03-01 至 2022-03-28。严格递推通常比日滚动一步预测更难，因为窗口内后续日期的销量特征不再由真实销量更新，而由前序预测值更新。如果第 1 天或第 2 天预测偏差较大，这个偏差会继续进入后续 `lag` 和滚动均值特征，造成误差累积。因此，若严格递推误差变差，论文中应如实写明，而不能把日滚动一步预测结果当成未来 7 天一次性预测的效果。
+
+## 12. 与问题一、问题二模型比较
 
 {df_to_md(comparison_report[["level", "previous_model", "previous_WAPE_pct", "q4_model", "q4_WAPE_pct", "relative_wape_improvement_pct"]], 10)}
 
-## 10. 显著性检验
+## 13. 显著性检验
 
 {df_to_md(tests_report, 10)}
 
 解释：检验使用每日绝对误差总和作为配对序列。若 p 值小于 0.05，可写为验证误差下降具有统计证据；否则只能写“数值上下降/未能证明显著下降”。当前门店-商品层级结论为：{significant_note}。
 
-## 11. 未来 7 天预测结果
+## 14. 未来 7 天预测结果
 
 各门店未来 7 天预测总销量：
 
@@ -912,9 +1341,9 @@ Ridge 回归适合解释线性加权关系，随机森林适合捕捉非线性�
 
 完整门店-商品-日期预测表已保存至 `outputs/final_7day_forecast.csv`，门店-商品 7 天汇总表已保存至 `tables/q4_store_product_forecast_7day_total.csv`。
 
-## 12. 结论
+## 15. 结论
 
-综合模型能够把前三问信息统一到门店-商品粒度，但是否优于简单模型必须看验证误差。若综合模型 WAPE 和显著性检验均优于前序模型，可写为“综合模型在验证集上表现出误差改进”；若未通过检验，则应写为“综合模型未能证明显著改进，简单时间序列模型仍具有竞争力”。本阶段不把外部变量写成因果影响，只把它们作为预测特征和统计关联信息使用。
+综合模型能够把前三问信息统一到门店-商品粒度，但是否优于简单模型必须看验证误差。日滚动一步预测和严格 7 日递推预测回答的是不同问题：前者评价逐日更新真实销量后的下一日预测能力，后者更接近一次性向未来递推 7 天的使用场景。若严格递推误差高于日滚动口径，应解释为预测误差进入后续滞后和滚动特征后发生累积，不能美化为“模型稳定改进”。天气、温度、风力在敏感性检验中表现出补充预测价值，但未来不可知时只能作为情景变量使用。本阶段不把外部变量写成因果影响，只把它们作为预测特征和统计关联信息使用。
 """
     (OUTPUTS / "stage5_q4_final_model_report.md").write_text(report, encoding="utf-8")
 
@@ -937,11 +1366,23 @@ $$
 
     q4_model_solution = f"""## 问题四模型求解
 
-验证区间取 2022-03-01 至 2022-03-30。由于 2022-03-31 缺少附件二外部变量，综合模型验证不使用该日期。验证采用滚动窗口：每个窗口只使用窗口开始日前的历史数据训练，预测该窗口内日期，从而避免随机切分带来的时间泄露。
+验证区间取 2022-03-01 至 2022-03-30。由于 2022-03-31 缺少附件二外部变量，综合模型验证不使用该日期。本文区分日滚动一步预测和严格 7 日递推预测。日滚动一步预测用于评价逐日更新真实销量后的下一日预测能力；严格 7 日递推预测只在窗口开始时使用窗口前真实销量，窗口内第 2 至第 7 天的滞后和滚动特征由前序预测值递推生成，从而更接近未来 7 天一次性预测场景。
+
+严格递推窗口如下：
+
+{df_to_md(recursive_windows_report)}
 
 门店-商品层级误差比较如下：
 
 {df_to_md(store_product_metrics[["model_label", "MAE", "RMSE", "WAPE_pct", "actual_sum", "prediction_sum", "n"]], 20)}
+
+严格 7 日递推门店-商品层级误差如下：
+
+{df_to_md(recursive_store_product_report, 20)}
+
+日滚动一步预测与严格递推预测的对比如下：
+
+{df_to_md(recursive_comparison_store_product[["model_label", "daily_WAPE_pct", "recursive_WAPE_pct", "WAPE_change_pct_points", "recursive_result"]], 20)}
 
 与前序模型比较如下：
 
@@ -956,7 +1397,9 @@ $$
 
     q4_result_analysis = f"""## 问题四结果分析
 
-问题四综合模型中，验证 WAPE 最低的综合模型为 `{best_comp_label}`。与问题一门店-商品简单指数平滑相比，门店-商品层级 WAPE 相对改进为 {improvement_store_product:.2f}%。显著性检验结论为：{significant_note}。
+问题四综合模型中，日滚动一步预测 WAPE 最低的综合模型为 `{best_comp_label}`。与问题一门店-商品简单指数平滑相比，门店-商品层级 WAPE 相对改进为 {improvement_store_product:.2f}%。显著性检验结论为：{significant_note}。
+
+严格 7 日递推预测用于检查未来 7 天一次性递推时的误差累积。严格递推口径下，`{best_comp_label}` 的门店-商品 WAPE 为 {strict_comp_row["WAPE_pct"]:.2f}%；{recursive_change_note}
 
 未来 7 天各门店预测总销量如下：
 
@@ -979,9 +1422,9 @@ $$
     row = (
         f"| 2026-05-02 | 阶段 5 问题四综合预测模型 | processed: modeling_base_table.csv | "
         f"7日移动平均baseline、Ridge、RandomForest | 滞后销量、滚动均值、星期、月份、门店、商品、类别、天气、节假日、活动日 | "
-        f"综合最优={best_comp_label}，WAPE={q4_row['WAPE']*100:.2f}%；相对问题一改进={improvement_store_product:.2f}% | "
-        f"已完成门店-商品综合预测、与问题一/二误差比较、显著性检验和未来7天预测表 | "
-        f"2022-03-31 缺少外部变量未纳入综合验证；未来天气/活动日为历史同期参考情景；显著性结论需按检验结果克制表述 | "
+        f"日滚动综合最优={best_comp_label}，WAPE={q4_row['WAPE']*100:.2f}%；严格7日递推下该模型WAPE={strict_comp_row['WAPE']*100:.2f}% | "
+        f"已完成门店-商品综合预测、与问题一/二误差比较、显著性检验、严格7日递推验证和未来7天预测表 | "
+        f"2022-03-31 缺少外部变量未纳入综合验证；未来天气/活动日为历史同期参考情景；严格递推误差需与日滚动一步预测分开表述 | "
         f"停止在阶段 5，等待确认后进入阶段 6 完整论文写作 |"
     )
     prepend_result_log(row)
@@ -993,6 +1436,20 @@ $$
         "best_comprehensive_model": str(best_comp_model),
         "best_comprehensive_label": str(best_comp_label),
         "best_comprehensive_wape": float(q4_row["WAPE"]),
+        "recursive_validation_windows": [
+            {
+                "window_start": str(start.date()),
+                "window_end": str(end.date()),
+            }
+            for start, end in recursive_windows
+        ],
+        "excluded_recursive_validation_windows": excluded_recursive_windows,
+        "best_comprehensive_recursive_7day_wape": float(strict_comp_row["WAPE"]),
+        "best_recursive_comprehensive_model": str(strict_best_comp_row["model"]),
+        "best_recursive_comprehensive_wape": float(strict_best_comp_row["WAPE"]),
+        "best_comprehensive_recursive_wape_change_pct_points": float(
+            selected_recursive_comparison["WAPE_change_pct_points"]
+        ),
         "q1_exp_smoothing_wape": float(q1_row["WAPE"]),
         "relative_wape_improvement_vs_q1_pct": float(improvement_store_product),
         "future_forecast_rows": int(len(future_daily_out)),
