@@ -1,0 +1,58 @@
+\documentclass[UTF8,a4paper,12pt,fontset=windows]{ctexart}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{url}
+
+\geometry{left=2.6cm,right=2.6cm,top=2.5cm,bottom=2.5cm}
+\graphicspath{{../../figures/}}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue,
+  pdfauthor={},
+  pdftitle={休闲零食连锁店商品销量预测}
+}
+\urlstyle{same}
+\setlist{nosep}
+\renewcommand{\arraystretch}{1.15}
+\pagestyle{plain}
+\sloppy
+
+\title{\bfseries 休闲零食连锁店商品销量预测}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\input{sections/abstract}
+\input{sections/problem_restatement}
+\input{sections/problem_analysis}
+\input{sections/assumptions_symbols}
+\input{sections/data_preprocessing}
+\input{sections/q1_model}
+\input{sections/q2_model}
+\input{sections/q3_model}
+\input{sections/q4_model}
+\input{sections/model_evaluation}
+\input{sections/strengths_weaknesses}
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\input{sections/appendix}
+
+\end{document}

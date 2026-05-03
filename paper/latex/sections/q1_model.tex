@@ -1,0 +1,87 @@
+\section{问题一：门店与商品销量分析及未来 7 天预测}
+
+问题一以正向销量为目标，分别在门店、商品和门店--商品层级建模。设某一序列第 $t$ 天销量为 $y_t$。
+
+\subsection{模型建立}
+
+7 日移动平均模型为
+\begin{equation}
+\hat y_{t+1}=\frac{1}{7}\sum_{i=0}^{6}y_{t-i}.
+\end{equation}
+该模型用最近 7 天平均销量代表短期水平，适合作为门店层面的主模型。
+
+同星期均值模型为
+\begin{equation}
+\hat y_t=\frac{1}{m}\sum_{j=1}^{m}y_{t-7j},\quad m\le 8.
+\end{equation}
+该模型用历史相同星期几销量预测目标日，作为检验星期效应的基准模型。
+
+简单指数平滑模型为
+\begin{equation}
+S_t=\alpha y_t+(1-\alpha)S_{t-1},\quad \hat y_{t+1}=S_t,\quad 0<\alpha\le 1.
+\end{equation}
+该模型更重视近期销量，适合作为商品和门店--商品层面的主模型 \cite{hyndman2021fpp3}。
+
+\subsection{验证结果}
+
+阶段 2 日滚动验证结果见表 \ref{tab:q1_metrics}。
+
+\begin{table}[H]
+\centering
+\caption{问题一日滚动验证下主模型误差}
+\label{tab:q1_metrics}
+\begin{tabular}{llrrr}
+\toprule
+层级 & 主模型 & MAE & RMSE & WAPE \\
+\midrule
+门店 & 移动平均(7日) & 9.685 & 15.445 & 37.49\% \\
+商品 & 简单指数平滑 & 5.748 & 10.968 & 38.14\% \\
+门店--商品 & 简单指数平滑 & 1.783 & 3.733 & 74.95\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+为了使评价更贴近“未来 7 天总销量”，方法复核中补充 7 日窗口总量验证。结果显示，原问题一主方案在商品层面 WAPE=21.51\%，门店层面 WAPE=22.12\%，门店--商品层面 WAPE=43.06\%。更复杂的滞后 Ridge 和随机森林未形成稳定优势，因此问题一保留原主模型。
+
+\subsection{描述性图表}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.88\textwidth]{q1_store_total_sales.png}
+\caption{各门店累计销量，用于说明门店销量规模差异}
+\label{fig:q1_store_total}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.88\textwidth]{q1_product_total_sales.png}
+\caption{各商品累计销量，用于说明商品销量规模差异}
+\label{fig:q1_product_total}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{q1_daily_total_trend.png}
+\caption{总体日销量趋势，用于观察历史销量波动}
+\label{fig:q1_daily_trend}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\textwidth]{q1_weekday_effect.png}
+\caption{星期效应，用于判断同星期均值模型是否有必要}
+\label{fig:q1_weekday}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\textwidth]{q1_model_wape_comparison.png}
+\caption{问题一模型 WAPE 对比，用于选择各层级主模型}
+\label{fig:q1_wape}
+\end{figure}
+
+\subsection{问题一结果}
+
+历史累计销量最高的门店为 B地江山店店，累计销量 21773；历史累计销量最高的商品为红牛，累计销量 31119。门店和商品销量规模差异明显，说明不能只用统一平均水平预测所有对象。
+
+未来 7 天门店预测中，B地江山店店预测总销量最高，为 309.0；C地五乡镇店为 280.0；A地天九街店为 245.0。商品预测中，乡吧哥蜜汁鸡翅预测 389.613，红牛预测 286.719，百事可乐600ml 预测 136.219。问题一门店层面和商品层面分别建模，预测总量没有强制一致：门店层面合计 1296.000，商品层面合计 1226.006。
