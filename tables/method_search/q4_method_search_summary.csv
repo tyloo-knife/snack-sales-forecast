@@ -1,0 +1,2 @@
+﻿validation_windows,target,grain,n_store_product_combinations,n_validation_rows_per_model,best_model,best_model_label,best_wape_pct,current_ridge_wape_pct,forecast_candidate_generated,recommend_replace_original_model
+2022-03-01 to 2022-03-07; 2022-03-08 to 2022-03-14; 2022-03-15 to 2022-03-21; 2022-03-22 to 2022-03-28,positive_sales,store_id + product_id + date,76,2128,exp_smoothing,问题一门店-商品指数平滑,76.34614067547855,76.68386053256756,True,False

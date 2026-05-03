@@ -1,0 +1,4 @@
+﻿model_family,package,available,action
+XGBoost,xgboost,False,本次不强行安装；若环境已具备可纳入同一验证框架
+LightGBM,lightgbm,False,本次不强行安装；若环境已具备可纳入同一验证框架
+CatBoost,catboost,False,本次不强行安装；若环境已具备可纳入同一验证框架

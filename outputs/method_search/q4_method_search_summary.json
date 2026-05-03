@@ -1,0 +1,9 @@
+{
+  "best_model": "exp_smoothing",
+  "best_model_label": "问题一门店-商品指数平滑",
+  "best_wape_pct": 76.34614067547855,
+  "current_ridge_wape_pct": 76.68386053256756,
+  "recommend_replace_original_model": false,
+  "forecast_candidate_generated": true,
+  "runtime_seconds": 54.84
+}

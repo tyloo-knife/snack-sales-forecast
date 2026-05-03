@@ -1,0 +1,2 @@
+﻿analysis_level,MAE,RMSE,WAPE,method,train_rows,validation_rows
+row_level_store_product,1.8924280958091673,4.178186094003979,0.8465758970574884,RandomForest grouped weather + history,56052,2430
