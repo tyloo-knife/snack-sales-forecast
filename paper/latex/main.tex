@@ -14,6 +14,7 @@
 \usepackage{xcolor}
 \usepackage{enumitem}
 \usepackage{url}
+\usepackage{listings}
 
 \geometry{left=2.6cm,right=2.6cm,top=2.5cm,bottom=2.5cm}
 \graphicspath{{../../figures/}}
@@ -30,15 +31,51 @@
 \renewcommand{\arraystretch}{1.15}
 \pagestyle{plain}
 \sloppy
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  showstringspaces=false
+}
 
 \title{\bfseries 休闲零食连锁店商品销量预测}
 \author{}
 \date{}
 
 \begin{document}
-\maketitle
+\begin{titlepage}
+\centering
+\vspace*{2.5cm}
+{\zihao{2}\bfseries 休闲零食连锁店商品销量预测\par}
+\vspace{2.2cm}
+\begin{flushleft}
+\textbf{小组每位成员信息：}
+\vspace{0.5cm}
+\begin{center}
+{\setlength{\tabcolsep}{3pt}
+\begin{tabular}{p{2.0cm}p{1.8cm}p{0.9cm}p{3.4cm}p{2.6cm}p{2.8cm}}
+\toprule
+学号 & 姓名 & 性别 & 学院 & 班级 & 电话 \\
+\midrule
+25011076 & 吴渔桐 & 男 & 化学与分子工程学院 & 化学类(新工科)2503 & 18101855669 \\[1.1em]
+25012721 & 张哲凌 & 男 & 数学学院 & 2503 & 15026542486 \\[1.1em]
+25010409 & 朱饶杰 & 男 & 材料科学与工程学院 & 2514班 & 18101609530 \\[1.1em]
+\bottomrule
+\end{tabular}
+}
+\end{center}
+\end{flushleft}
+\vfill
+{\large \today\par}
+\end{titlepage}
 
 \input{sections/abstract}
+\clearpage
 \input{sections/problem_restatement}
 \input{sections/problem_analysis}
 \input{sections/assumptions_symbols}

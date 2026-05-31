@@ -1,0 +1,14 @@
+{
+  "validation_mode": "strict_recursive_7day",
+  "current_model": "hybrid_current_q1_regular_ridge",
+  "current_wape_pct": 75.85261431583534,
+  "best_candidate_model": "hybrid_avg_lt_0_3_or_zero_ge_0_75_recent28_mean",
+  "best_candidate_label": "历史均值 <0.3 或零销量比例 >=0.75-低销量用近28日均值",
+  "best_candidate_wape_pct": 74.9536850411231,
+  "best_minus_current_wape_pct_points": -0.8989292747122448,
+  "leave_one_selected_mean_wape_pct": 76.08438350947938,
+  "leave_one_current_mean_wape_pct": 76.26998111450024,
+  "leave_one_improvement_pct_points": 0.18559760502085965,
+  "replace_current": false,
+  "store_interval_rows": 7
+}

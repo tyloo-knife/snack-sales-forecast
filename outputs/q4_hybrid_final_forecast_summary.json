@@ -1,0 +1,9 @@
+{
+  "model": "hybrid_low_q1_regular_ridge",
+  "future_rows": 532,
+  "low_volume_series": 28,
+  "total_series": 76,
+  "future_total_sales": 1329.8939989742807,
+  "future_integer_total_sales": 1328,
+  "original_ridge_total_sales": 1311.2940321631913
+}

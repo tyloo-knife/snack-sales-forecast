@@ -1,6 +1,6 @@
 # 答辩准备材料
 
-生成时间：2026-05-03
+生成时间：2026-05-31
 
 ## 1. 一句话介绍项目
 
@@ -13,6 +13,7 @@
 3. 问题二用附件 `category` 字段做同类零食正式聚合，相关性分析只解释同步波动。
 4. 问题三用固定效应回归分析外部因素与销量的条件统计关联，不写因果。
 5. 问题四用综合 Ridge 融合前三问信息，但以严格 7 日递推验证作为主口径。
+6. 在严格递推口径下补充消融和低销量鲁棒性检验，最终候选预测采用“低销量指数平滑 + 常规序列 Ridge”的可解释混合策略。
 
 ## 3. 高频答辩问题
 
@@ -40,9 +41,13 @@
 
 答：严格 7 日递推下不能这样说。问题一门店-商品简单指数平滑 WAPE=76.35%，综合 Ridge WAPE=76.68%。综合 Ridge 未超过强 baseline，但它融合了历史销量、类别和外部变量，可作为综合解释模型。
 
+### Q6-1：最终为什么又采用混合策略？
+
+答：我们没有盲目换复杂模型，而是在误差诊断发现低销量序列较多后做了严格递推低销量鲁棒性检验。结果显示，低销量序列用问题一指数平滑、常规序列用综合 Ridge 的混合策略 WAPE=75.85%，略优于问题一指数平滑的 76.35% 和综合 Ridge 的 76.68%。后续尝试近 28 日均值兜底，全样本 WAPE 可到 74.95%，但留一窗口选模平均改善只有 0.19 个百分点，未达到稳定替换阈值。因此候选最终预测仍采用该规则化混合策略，论文中只写作稳健性改进，不夸大为显著突破。
+
 ### Q7：最终预测表是否可直接提交？
 
-答：`outputs/final_7day_forecast.csv` 可作为给定历史同期天气和活动日情景下的小数预测表。若提交格式要求整数销量，使用 `outputs/final_7day_forecast_integer.csv`，规则是先将负预测置为 0，再四舍五入为整数；本次整数化后 7 天总量为 1309 件。
+答：候选最终预测表为 `outputs/final_7day_forecast_hybrid_low_volume.csv`，它是给定历史同期天气和活动日情景下的小数预测表，7 天总量为 1329.894。若提交格式要求整数销量，使用 `outputs/final_7day_forecast_hybrid_low_volume_integer.csv`，规则是先将负预测置为 0，极小预测值低于 `1e-6` 时置为 0，再四舍五入为整数；本次整数化后 7 天总量为 1328 件。原 `outputs/final_7day_forecast.csv` 仍保留为完整 Ridge 对照。
 
 ### Q8：为什么使用 WAPE 而不是 MAPE？
 
@@ -62,7 +67,7 @@
 
 ### Q12：低销量和零销量序列如何影响预测？
 
-答：低销量序列的绝对误差可能很小，但 WAPE 会被低分母放大；零销量比例高的序列还会让滞后和滚动均值长期接近 0，模型难以及时捕捉偶发购买。`outputs/intermittent_demand_review.md` 显示 76 条门店-商品序列中有 54 条零销量比例不低于 50%，这是细粒度预测误差较高的重要原因。
+答：低销量序列的绝对误差可能很小，但 WAPE 会被低分母放大；零销量比例高的序列还会让滞后和滚动均值长期接近 0，模型难以及时捕捉偶发购买。`outputs/intermittent_demand_review.md` 显示 76 条门店-商品序列中有 54 条零销量比例不低于 50%；本轮增强误差归因显示，当前混合策略下低销量门店-商品序列整体 WAPE 约为 122.53%，这是细粒度预测误差较高的重要原因。
 
 ### Q13：综合模型没有超过简单指数平滑，为什么仍然保留？
 
@@ -91,8 +96,9 @@
 | 问题三主回归 WAPE | 84.53% |
 | 问题四严格递推强 baseline WAPE | 76.35% |
 | 问题四严格递推综合 Ridge WAPE | 76.68% |
-| 最终预测 7 天总销量，小数表 | 1311.294 |
-| 最终预测 7 天总销量，整数表 | 1309 |
+| 问题四低销量混合策略 WAPE | 75.85% |
+| 混合策略最终预测 7 天总销量，小数表 | 1329.894 |
+| 混合策略最终预测 7 天总销量，整数表 | 1328 |
 
 ## 5. 必须主动说明的限制
 
@@ -110,7 +116,13 @@
 - 严格递推验证：`outputs/q4_recursive_7day_model_comparison.md`
 - 误差诊断：`outputs/q4_error_diagnosis_report.md`
 - 天气敏感性：`outputs/q4_weather_sensitivity_report.md`
+- 严格递推消融：`outputs/q4_ablation_report.md`
+- 低销量鲁棒性：`outputs/q4_low_volume_strategy_report.md`
+- 候选优化复核：`outputs/q4_candidate_model_review.md`
+- 预测不确定性：`outputs/forecast_uncertainty_report.md`
+- 增强误差归因：`outputs/q4_error_attribution_enhanced_report.md`
+- 混合策略最终预测说明：`outputs/q4_hybrid_final_forecast_report.md`
 - 间歇性需求审查：`outputs/intermittent_demand_review.md`
-- 小数预测表：`outputs/final_7day_forecast.csv`
-- 整数预测表：`outputs/final_7day_forecast_integer.csv`
+- 混合策略小数预测表：`outputs/final_7day_forecast_hybrid_low_volume.csv`
+- 混合策略整数预测表：`outputs/final_7day_forecast_hybrid_low_volume_integer.csv`
 - AI 使用记录：`outputs/ai_usage_record.md`

@@ -12,6 +12,10 @@
   \item 严格递推验证：\path{src/stage5_q4_recursive_validation.py}
   \item 问题四误差诊断：\path{src/stage5_q4_error_diagnosis.py}
   \item 天气敏感性分析：\path{src/stage5_q4_weather_sensitivity.py}
+  \item 严格递推消融检验：\path{src/stage5_q4_ablation.py}
+  \item 低销量鲁棒性策略：\path{src/stage5_q4_low_volume_strategy.py}
+  \item 低销量混合最终预测：\path{src/stage5_q4_hybrid_final_forecast.py}
+  \item 候选优化、不确定性和区间分析：\path{src/stage5_q4_award_iteration.py}
   \item 间歇性需求审查：\path{src/intermittent_demand_review.py}
 \end{itemize}
 
@@ -27,11 +31,31 @@
   \item 严格递推验证：\path{outputs/q4_recursive_7day_model_comparison.md}
   \item 误差诊断：\path{outputs/q4_error_diagnosis_report.md}
   \item 天气敏感性检验：\path{outputs/q4_weather_sensitivity_report.md}
+  \item 严格递推消融检验：\path{outputs/q4_ablation_report.md}
+  \item 低销量鲁棒性策略：\path{outputs/q4_low_volume_strategy_report.md}
+  \item 混合策略最终预测说明：\path{outputs/q4_hybrid_final_forecast_report.md}
+  \item 候选优化复核：\path{outputs/q4_candidate_model_review.md}
+  \item 预测不确定性报告：\path{outputs/forecast_uncertainty_report.md}
+  \item 增强误差归因：\path{outputs/q4_error_attribution_enhanced_report.md}
   \item 间歇性需求审查：\path{outputs/intermittent_demand_review.md}
   \item 最终方法选择：\path{outputs/method_search/final_method_selection.md}
   \item 小数预测表：\path{outputs/final_7day_forecast.csv}
   \item 整数预测表：\path{outputs/final_7day_forecast_integer.csv}
+  \item 混合策略小数预测表：\path{outputs/final_7day_forecast_hybrid_low_volume.csv}
+  \item 混合策略整数预测表：\path{outputs/final_7day_forecast_hybrid_low_volume_integer.csv}
 \end{itemize}
+
+\subsection{核心 Python 代码}
+
+以下列出本次论文最终结论直接依赖的核心新增代码。完整项目代码保存在项目仓库中。复现问题四候选最终结果时，应先运行严格递推消融检验生成 \path{tables/q4_ablation_predictions.csv}，再运行低销量策略检验、混合预测生成和候选优化脚本。核心依赖包括 \path{src/features.py}、\path{src/models.py}、\path{src/evaluation.py} 以及 \path{data/processed/modeling_base_table.csv}；附录只展示关键阶段脚本，完整可复现代码以项目仓库的 \path{src/} 目录为准。
+
+\lstinputlisting[language=Python,caption={严格 7 日递推消融检验代码}]{../../src/stage5_q4_ablation.py}
+
+\lstinputlisting[language=Python,caption={低销量鲁棒性策略检验代码}]{../../src/stage5_q4_low_volume_strategy.py}
+
+\lstinputlisting[language=Python,caption={低销量混合策略最终预测代码}]{../../src/stage5_q4_hybrid_final_forecast.py}
+
+\lstinputlisting[language=Python,caption={候选优化与不确定性补充代码}]{../../src/stage5_q4_award_iteration.py}
 
 \subsection{AI 工具使用说明}
 
