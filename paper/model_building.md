@@ -162,7 +162,8 @@ $$
 综合模型可以写为：
 
 $$
-\hat y_{s,p,t}=f(Lag_{s,p,t},Roll_{s,p,t},Cal_t,Store_s,Product_p,Category_p,External_t)
+\hat y_{s,p,t}=x_{s,p,t}^{\top}\hat\beta,\quad
+\hat\beta=\arg\min_{\beta}\left\{\sum_{(s,p,t)\in \mathcal T}(y_{s,p,t}-x_{s,p,t}^{\top}\beta)^2+\lambda\sum_{j=1}^{d}\beta_j^2\right\}
 $$
 
 其中，$Lag$ 表示滞后销量，$Roll$ 表示滚动均值，$Cal$ 表示星期、月份和周末，$External$ 表示天气、节假日和活动日。本文保留移动平均 baseline，并建立 Ridge 回归和随机森林综合模型。Ridge 适合解释线性关系，随机森林用于捕捉非线性和交互关系。LightGBM/XGBoost 当前环境不可用，SARIMAX 不适合大量门店-商品组合和多分类外部变量，因此未作为主模型。
