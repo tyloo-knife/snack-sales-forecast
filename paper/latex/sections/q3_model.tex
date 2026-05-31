@@ -13,7 +13,7 @@
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{q3_binary_factor_mean_sales.png}
-\caption{二元外部因素均值差异，用于展示节假日、周末和活动日下的描述性销量差异}
+\caption{节假日、周末和活动日下的平均销量差异}
 \label{fig:q3_binary}
 \end{figure}
 
@@ -53,18 +53,18 @@ z_{s,p,t}=\beta_0+\beta^\top External_t+\rho_1 lag7_{s,p,t}
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.86\textwidth]{q3_regression_factor_effect_ranking.png}
-\caption{回归关联强度排序，用于展示外部变量在控制部分混杂因素后的可比统计关联}
+\caption{外部变量回归关联强度排序}
 \label{fig:q3_regression}
 \end{figure}
 
 \subsection{机器学习辅助分析}
 
-随机森林置换重要性用于补充判断非线性预测贡献 \cite{breiman2001random}。它能说明打乱某一特征后预测误差增加多少，但不能说明销量变化方向，也不能证明因果关系。因此，问题三最终结论以回归的统计关联方向为主，以随机森林重要性作为辅助排序依据。
+随机森林置换重要性用于补充判断非线性预测贡献 \cite{breiman2001random}。它能说明打乱某一特征后预测误差增加多少，但不刻画销量变化方向，也不用于识别因果效应。因此，问题三最终结论以回归的统计关联方向为主，以随机森林重要性作为辅助排序依据。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.82\textwidth]{q3_random_forest_permutation_importance.png}
-\caption{随机森林置换重要性，用于展示非线性模型中的预测贡献}
+\caption{随机森林置换重要性排序}
 \label{fig:q3_rf}
 \end{figure}
 
