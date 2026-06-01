@@ -1,0 +1,2 @@
+﻿variable_name,term,factor,variable,coef,std_err,t_value,p_value,significance,direction,comparable_abs_effect,interpretation,level_n_days,source_model,sample_size_note
+周末,is_weekend,is_weekend,is_weekend,0.06506650217148577,0.009329438032311455,6.974321705780701,3.0735005014729284e-12,***,正关联,0.06506650217148577,0/1 变量从 0 到 1 的 log(1+销量) 差异,,weekend_effect_model_without_weekday_fe,补充模型；不含星期固定效应，主模型不单独识别周末效应
