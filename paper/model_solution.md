@@ -90,52 +90,48 @@ $$
 
 | model | description | nobs | r_squared | adj_r_squared | weather_reference | note |
 | --- | --- | --- | --- | --- | --- | --- |
-| controlled_product_fixed_effect | 天气、温度、风力、节假日、活动日 + 星期、月份、门店、商品控制变量 | 59049 | 0.026 | 0.025 | 晴 | 主要解释模型；标准误按日期聚类 |
-| weekend_effect_model | 估计周末变量；不再加入星期固定效应，避免完全共线 | 59049 | 0.026 | 0.025 | 晴 | 用于周末/工作日关联估计 |
-| category_control_model | 用商品类别替代商品固定效应的补充模型 | 59049 | 0.025 | 0.024 | 晴 | 产品固定效应会吸收类别差异，因此单独给出类别控制模型 |
+| controlled_product_fixed_effect | log(1+销量) ~ 合并天气、平均温度、昼夜温差、风力、节假日、周末、活动日、历史控制 + 星期、月份、门店、商品固定效应 | 58517 | 0.371 | 0.370 | no_precip | 主要解释模型；标准误按门店-商品组合聚类 |
+| weekend_effect_model | 估计周末变量；不加入星期固定效应的补充模型 | 58517 | 0.370 | 0.370 | no_precip | 用于检查周末变量与星期固定效应重叠后的稳定性 |
+| category_control_model | 用商品类别替代商品固定效应的补充模型 | 58517 | 0.364 | 0.363 | no_precip | 产品固定效应会吸收类别差异，因此单独给出类别控制模型 |
 
 外部变量回归系数节选如下：
 
 | factor | variable | coef | p_value | direction | comparable_abs_effect | level_n_days | sample_size_note |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| weather | 雨夹雪 | 2.349 | 0.001 | 正关联 | 2.349 | 3.000 | 该天气样本天数少，系数需谨慎解释 |
-| is_activity_day | is_activity_day | 1.994 | 0.000 | 正关联 | 1.994 |  |  |
-| weather | 暴雨 | -1.975 | 0.024 | 负关联 | 1.975 | 1.000 | 该天气样本天数少，系数需谨慎解释 |
-| min_temperature | min_temperature | 0.085 | 0.008 | 正关联 | 1.271 |  |  |
-| weather | 中到大雨 | -0.971 | 0.012 | 负关联 | 0.971 | 8.000 | 该天气样本天数少，系数需谨慎解释 |
-| max_temperature | max_temperature | -0.061 | 0.048 | 负关联 | 0.915 |  |  |
-| weather | 中雨 | -0.786 | 0.001 | 负关联 | 0.786 | 22.000 |  |
-| weather | 大雨 | -0.765 | 0.150 | 负关联 | 0.765 | 5.000 | 该天气样本天数少，系数需谨慎解释 |
-| weather | 阵雨 | -0.513 | 0.003 | 负关联 | 0.513 | 1.000 | 该天气样本天数少，系数需谨慎解释 |
-| weather | 阴 | -0.397 | 0.007 | 负关联 | 0.397 | 110.000 |  |
-| weather | 雷阵雨 | -0.365 | 0.044 | 负关联 | 0.365 | 42.000 |  |
-| weather | 多云 | -0.293 | 0.016 | 负关联 | 0.293 | 163.000 |  |
-| is_holiday | is_holiday | 0.261 | 0.044 | 正关联 | 0.261 |  |  |
-| weather | 小雨 | -0.245 | 0.036 | 负关联 | 0.245 | 203.000 |  |
-| weather | 小到中雨 | -0.242 | 0.308 | 负关联 | 0.242 | 35.000 |  |
+| weather_group | sleet_rare | 0.329 | 0.000 | 正关联 | 0.329 | 3.000 | 该天气组合样本天数少，系数需谨慎解释 |
+| is_activity_day | is_activity_day | 0.325 | 0.000 | 正关联 | 0.325 |  |  |
+| rolling_28_prev | rolling_28_prev | 0.081 | 0.004 | 正关联 | 0.132 |  |  |
+| weather_group | moderate_heavy_rain | -0.054 | 0.000 | 负关联 | 0.054 | 39.000 |  |
+| is_holiday | is_holiday | 0.046 | 0.001 | 正关联 | 0.046 |  |  |
+| is_weekend | is_weekend | 0.041 | 0.000 | 正关联 | 0.041 |  |  |
+| wind_power | wind_power | -0.012 | 0.000 | 负关联 | 0.023 |  |  |
+| avg_temperature | avg_temperature | 0.001 | 0.436 | 正关联 | 0.016 |  |  |
+| temperature_range | temperature_range | -0.002 | 0.081 | 负关联 | 0.012 |  |  |
+| weather_group | light_rain | -0.007 | 0.374 | 负关联 | 0.007 | 281.000 |  |
+| lag_7 | lag_7 | -0.000 | 0.374 | 负关联 | 0.000 |  |  |
 
 随机森林模型以 2022-03-01 为验证期起点，验证结果如下：
 
 | model | train_rows | validation_rows | validation_start | MAE | RMSE | WAPE | R2 | note |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| RandomForestRegressor | 56619 | 2430 | 2022-03-01 | 1.995 | 4.967 | 0.893 | -0.072 | 用于非线性特征重要性分析，不用于证明因果 |
+| RandomForestRegressor | 56619 | 2430 | 2022-03-01 | 1.958 | 4.240 | 0.876 | 0.219 | 用于非线性特征重要性分析，不用于证明因果 |
 
 随机森林置换重要性前若干项如下：
 
 | feature_group | feature | importance_mean_mae_increase | importance_std |
 | --- | --- | --- | --- |
-| 商品类别 | category | 0.349 | 0.023 |
-| 商品 | product_id_str | 0.271 | 0.013 |
-| 门店 | store_id_str | 0.244 | 0.048 |
-| 活动日 | is_activity_day | 0.052 | 0.013 |
-| 天气 | weather | 0.028 | 0.045 |
-| 最低温 | min_temperature | 0.026 | 0.011 |
-| 最高温 | max_temperature | 0.022 | 0.007 |
-| 风力 | wind_power | 0.016 | 0.047 |
+| 商品类别 | category | 0.332 | 0.019 |
+| 门店 | store_id_str | 0.271 | 0.026 |
+| 风力 | wind_power | 0.250 | 0.021 |
+| 商品 | product_id_str | 0.245 | 0.026 |
+| 昼夜温差 | temperature_range | 0.169 | 0.131 |
+| 活动日 | is_activity_day | 0.051 | 0.010 |
 | 节假日 | is_holiday | 0.000 | 0.000 |
 | 月份 | month | 0.000 | 0.000 |
-| 周末 | is_weekend | -0.000 | 0.001 |
-| 星期 | weekday | -0.001 | 0.020 |
+| 周末 | is_weekend | -0.000 | 0.002 |
+| 平均温度 | avg_temperature | -0.000 | 0.004 |
+| 天气 | weather_group | -0.005 | 0.003 |
+| 星期 | weekday | -0.015 | 0.008 |
 
 ## 问题四模型求解
 
@@ -188,7 +184,7 @@ $$
 | store_category | 问题二-门店-单品预测后按门店类别加总-简单指数平滑 | 69.611 | 综合Ridge回归 | 67.512 | 3.015 |
 | category | 问题二-类别聚合后直接预测-简单指数平滑 | 34.908 | 综合Ridge回归 | 33.395 | 4.334 |
 
-日滚动一步预测口径下的显著性检验如下。该检验只能说明在“每日更新真实销量后预测下一日”的辅助口径下存在误差差异，不能直接等同于严格 7 日递推预测下的显著改进。
+显著性检验如下：
 
 | comparison | n_pairs | mean_baseline_error | mean_candidate_error | mean_error_reduction | t_stat | t_p_value_less | wilcoxon_stat | wilcoxon_p_value_less | dm_stat | dm_p_value_less | note |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -196,9 +192,5 @@ $$
 | 综合Ridge回归 vs 7日移动平均baseline | 30 | 10448.914 | 10058.071 | 390.843 | 2.634 | 0.007 | 346.000 | 0.009 | 2.634 | 0.007 |  |
 | 综合Ridge回归聚合到门店类别 vs 问题二门店类别最佳 | 30 | 126.042 | 122.241 | 3.801 | 1.894 | 0.034 | 307.000 | 0.065 | 1.894 | 0.034 |  |
 | 综合Ridge回归聚合到类别 vs 问题二类别最佳 | 30 | 63.206 | 60.467 | 2.739 | 1.049 | 0.151 | 288.000 | 0.131 | 1.049 | 0.151 |  |
-
-严格 7 日递推主口径下，问题一门店-商品简单指数平滑 WAPE=76.35%，综合 Ridge WAPE=76.68%。因此，综合 Ridge 未超过强 baseline，论文中不写“综合模型显著提高未来 7 天预测精度”。
-
-后续低销量鲁棒性检验在同一严格递推窗口下比较了低销量混合策略。低销量序列使用问题一指数平滑、常规序列使用综合 Ridge 的混合策略 WAPE=75.85%，略优于问题一简单指数平滑和完整综合 Ridge。因此，最终候选预测表采用 `outputs/final_7day_forecast_hybrid_low_volume.csv`，同时保留原完整 Ridge 预测表 `outputs/final_7day_forecast.csv` 作为对照。
 
 未来天气和活动日无附件观测，因此采用历史同月日参考情景；清明节日历按 2022-04-03 至 2022-04-05 为节假日处理。

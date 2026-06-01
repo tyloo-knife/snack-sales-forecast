@@ -130,10 +130,48 @@ def integerize_forecast(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def aggregate_integer_forecast(integer_forecast: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Build every displayed forecast total from the integer finest-grain table."""
+    df = integer_forecast.copy()
+    df["predicted_sales"] = df["predicted_sales"].astype(int)
+    group_specs = {
+        "store_total": ["store_id", "store_name"],
+        "store_date_total": ["date", "store_id", "store_name"],
+        "category_total": ["category"],
+        "category_date_total": ["date", "category"],
+        "product_total": ["product_id", "product_name", "category"],
+        "store_product_total": [
+            "store_id",
+            "store_name",
+            "product_id",
+            "product_name",
+            "category",
+        ],
+    }
+    outputs: dict[str, pd.DataFrame] = {}
+    for name, group_cols in group_specs.items():
+        total = (
+            df.groupby(group_cols, as_index=False, dropna=False)["predicted_sales"]
+            .sum()
+            .rename(columns={"predicted_sales": "predicted_7day_sales"})
+        )
+        if name.endswith("_date_total"):
+            total = total.rename(columns={"predicted_7day_sales": "predicted_daily_sales"})
+            sort_cols = group_cols
+        elif name == "store_product_total":
+            sort_cols = ["store_id", "product_id"]
+        else:
+            sort_cols = ["predicted_7day_sales"]
+        ascending = [False] if sort_cols == ["predicted_7day_sales"] else True
+        outputs[name] = total.sort_values(sort_cols, ascending=ascending).reset_index(drop=True)
+    return outputs
+
+
 def write_report(
     future: pd.DataFrame,
     store_total: pd.DataFrame,
     category_total: pd.DataFrame,
+    integer_total: int,
     cls: pd.DataFrame,
 ) -> None:
     strategy_metrics = pd.read_csv(TABLES / "q4_low_volume_strategy_metrics.csv")
@@ -158,7 +196,7 @@ def write_report(
 
 ## 4. 预测汇总
 
-未来 7 天混合策略预测总销量为 {future['predicted_sales'].sum():.3f}。
+未来 7 天混合策略连续预测总销量为 {future['predicted_sales'].sum():.3f}；按门店--商品--日期最细粒度非负约束并四舍五入后，整数预测总销量为 {integer_total}。所有门店、商品、类别和逐日汇总均由该整数明细表求和得到。
 
 门店汇总：
 
@@ -249,32 +287,25 @@ def main() -> None:
     final = merged[out_cols].sort_values(["date", "store_id", "product_id"]).reset_index(drop=True)
     final["date"] = final["date"].dt.date.astype(str)
     save_csv(final, "final_7day_forecast_hybrid_low_volume.csv")
-    save_csv(integerize_forecast(final), "final_7day_forecast_hybrid_low_volume_integer.csv")
+    integer_final = integerize_forecast(final)
+    save_csv(integer_final, "final_7day_forecast_hybrid_low_volume_integer.csv")
 
-    store_total = (
-        final.groupby(["store_id", "store_name"], as_index=False)["predicted_sales"]
-        .sum()
-        .rename(columns={"predicted_sales": "predicted_7day_sales"})
-        .sort_values("predicted_7day_sales", ascending=False)
-    )
-    category_total = (
-        final.groupby("category", as_index=False)["predicted_sales"]
-        .sum()
-        .rename(columns={"predicted_sales": "predicted_7day_sales"})
-        .sort_values("predicted_7day_sales", ascending=False)
-    )
-    product_total = (
-        final.groupby(["product_id", "product_name", "category"], as_index=False)["predicted_sales"]
-        .sum()
-        .rename(columns={"predicted_sales": "predicted_7day_sales"})
-        .sort_values("predicted_7day_sales", ascending=False)
-    )
-    save_csv(store_total, "q4_hybrid_forecast_7day_total_by_store.csv")
-    save_csv(category_total, "q4_hybrid_forecast_7day_total_by_category.csv")
-    save_csv(product_total, "q4_hybrid_forecast_7day_total_by_product.csv")
-    write_report(final, store_total, category_total, cls)
+    summaries = aggregate_integer_forecast(integer_final)
+    save_csv(summaries["store_total"], "q4_hybrid_forecast_7day_total_by_store.csv")
+    save_csv(summaries["store_date_total"], "q4_hybrid_forecast_daily_by_store.csv")
+    save_csv(summaries["category_total"], "q4_hybrid_forecast_7day_total_by_category.csv")
+    save_csv(summaries["category_date_total"], "q4_hybrid_forecast_daily_by_category.csv")
+    save_csv(summaries["product_total"], "q4_hybrid_forecast_7day_total_by_product.csv")
+    save_csv(summaries["store_product_total"], "q4_hybrid_forecast_7day_total_by_store_product.csv")
 
-    integer_total = int(integerize_forecast(final)["predicted_sales"].sum())
+    integer_total = int(integer_final["predicted_sales"].sum())
+    write_report(
+        final,
+        summaries["store_total"],
+        summaries["category_total"],
+        integer_total,
+        cls,
+    )
     summary = {
         "model": "hybrid_low_q1_regular_ridge",
         "future_rows": int(len(final)),
@@ -283,6 +314,7 @@ def main() -> None:
         "future_total_sales": float(final["predicted_sales"].sum()),
         "future_integer_total_sales": integer_total,
         "original_ridge_total_sales": float(ridge["pred_ridge_full"].sum()),
+        "integer_aggregation_rule": "only round nonnegative store-product-date cells; all upper totals are sums of that integer matrix",
     }
     (OUTPUTS / "q4_hybrid_final_forecast_summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
