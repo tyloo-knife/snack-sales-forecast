@@ -1,0 +1,13 @@
+﻿requested_variable,field,availability,note
+天气类型,weather,存在,附件二 `天气` 字段，分类变量
+温度,max_temperature/min_temperature/avg_temperature,存在,最高温、最低温及平均温
+湿度,humidity,不存在,原始附件和处理表均无湿度字段，不能分析
+风力,wind_power,存在,附件二 `风力` 字段，单位待确认
+是否节假日,is_holiday,存在,由节日字段转换
+是否周末,is_weekend,存在,由日期星期转换
+是否活动日,is_activity_day,存在,附件二 0/1 活动日字段，作为门店活动日标记
+星期,weekday,存在,周一=1，周日=7
+月份,month,存在,日期月份
+门店,store_id,存在,门店编号控制变量
+商品,product_id,存在,商品编号控制变量
+商品类别,category,存在,类别控制或分组变量

@@ -1,0 +1,9 @@
+﻿category,model,model_label,predicted_7day_sales
+包装散称,ridge,综合Ridge回归,443.88093933051545
+功能饮料,ridge,综合Ridge回归,374.8858480239743
+碳酸饮料,ridge,综合Ridge回归,216.4939022270356
+乳类饮品,ridge,综合Ridge回归,87.86978837527818
+速食类,ridge,综合Ridge回归,75.07396096724125
+包装海苔,ridge,综合Ridge回归,66.81483172904527
+包装坚果,ridge,综合Ridge回归,45.3932284722437
+包装冲饮,ridge,综合Ridge回归,0.8815333931908325

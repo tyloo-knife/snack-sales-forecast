@@ -1,0 +1,5 @@
+﻿weather_group,n_days,mean_daily_sales,median_daily_sales,std_daily_sales,total_sales,weather_group_label
+light_rain,281,137.5444839857651,121.0,178.03773370061379,38650,小雨/阵雨
+moderate_heavy_rain,39,107.12820512820512,96.0,60.917191198673656,4178,中大雨及以上
+no_precip,406,124.28325123152709,113.0,78.55491789947665,50459,无降水
+sleet_rare,3,356.6666666666667,444.0,172.46835458522045,1070,雨夹雪

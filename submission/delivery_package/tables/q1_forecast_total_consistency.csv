@@ -1,0 +1,4 @@
+﻿level,predicted_7day_total,note
+store,1296.0,independent best model by store level
+product,1226.006,independent best model by product level
+store_product,1278.496,independent best model by store-product level
