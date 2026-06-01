@@ -10,8 +10,8 @@
 
 ## 2. 原始文件与工作表
 
-- 附件一：`C:/Users/20215/Documents/CodexProjects/02-modeling/snack-sales-forecast/data/raw/附件一：历史零售明细统计.xlsx`
-- 附件二：`C:/Users/20215/Documents/CodexProjects/02-modeling/snack-sales-forecast/data/raw/附件二：某市近两年天气等数据.xlsx`
+- 附件一：`data/raw/附件一：历史零售明细统计.xlsx`
+- 附件二：`data/raw/附件二：某市近两年天气等数据.xlsx`
 
 ### 附件一 - 附件一 历史零售明细统计2
 

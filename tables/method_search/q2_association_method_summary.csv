@@ -1,5 +1,0 @@
-﻿method,pair_count,strong_positive_pairs_corr_ge_0_5,moderate_positive_pairs_corr_ge_0_3,weak_pairs_abs_corr_le_0_1,negative_pairs_corr_lt_0,max_abs_corr,mean_abs_corr
-Pearson,66,2,18,25,7,0.5272403272492234,0.1959254701890063
-Spearman,66,4,19,20,4,0.6265900363702532,0.2359776085579568
-去星期效应Pearson,66,2,18,24,7,0.5267047186976692,0.19293452877119047
-滞后相关(-7至7日),66,2,19,25,7,0.5304960497546826,0.19710033519893522

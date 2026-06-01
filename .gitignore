@@ -13,6 +13,7 @@ venv/
 *.backup*
 *.bak
 *.tmp
+archive/
 
 # OS/editor metadata
 .DS_Store
@@ -21,3 +22,21 @@ Thumbs.db
 # Local packaging artifacts
 dist/
 *.zip
+notebooks/
+
+# LaTeX build artifacts
+paper/latex/*.aux
+paper/latex/*.bbl
+paper/latex/*.blg
+paper/latex/*.fdb_latexmk
+paper/latex/*.fls
+paper/latex/*.log
+paper/latex/*.out
+paper/latex/*.xdv
+paper/latex/*.pdf
+paper/latex/build/
+
+# Local render/check images
+paper/final_paper_page*.png
+outputs/final_paper_page*_check*.png
+submission/*.log

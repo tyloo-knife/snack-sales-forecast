@@ -1,8 +1,0 @@
-{
-  "analysis_rows": 59049,
-  "analysis_dates": 729,
-  "daily_outlier_days": 28,
-  "recommended_primary_method": "合并天气 + 对数销量 + 历史控制固定效应回归",
-  "replace_original": "建议部分替换",
-  "key_output": "C:\\Users\\20215\\Documents\\CodexProjects\\02-modeling\\snack-sales-forecast\\outputs\\method_search\\q3_method_search_report.md"
-}

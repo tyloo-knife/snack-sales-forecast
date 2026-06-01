@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -30,8 +29,6 @@ from src.models import (
 TABLES = ROOT / "tables"
 FIGURES = ROOT / "figures"
 OUTPUTS = ROOT / "outputs"
-NOTEBOOKS = ROOT / "notebooks"
-PAPER = ROOT / "paper"
 
 TARGET = "positive_sales"
 VALIDATION_START = pd.Timestamp("2022-03-01")
@@ -96,27 +93,6 @@ def save_csv(df: pd.DataFrame, name: str, to_outputs: bool = False) -> None:
     df.to_csv(TABLES / name, index=False, encoding="utf-8-sig")
     if to_outputs:
         df.to_csv(OUTPUTS / name, index=False, encoding="utf-8-sig")
-
-
-def upsert_section(path: Path, heading: str, content: str) -> None:
-    text = path.read_text(encoding="utf-8") if path.exists() else ""
-    content = content.strip() + "\n"
-    if heading in text:
-        start = text.index(heading)
-        next_idx = text.find("\n## ", start + len(heading))
-        if next_idx == -1:
-            new_text = text[:start].rstrip() + "\n\n" + content
-        else:
-            new_text = (
-                text[:start].rstrip()
-                + "\n\n"
-                + content
-                + "\n"
-                + text[next_idx + 1 :].lstrip()
-            )
-    else:
-        new_text = text.rstrip() + "\n\n" + content
-    path.write_text(new_text, encoding="utf-8")
 
 
 def prepare_model_frame(panel: pd.DataFrame) -> pd.DataFrame:
@@ -711,138 +687,6 @@ def paired_tests_for_models(
     return paired_error_tests(daily["abs_error_base"], daily["abs_error_cand"], label)
 
 
-def build_notebook() -> None:
-    nb = {
-        "cells": [
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "# 07 综合预测模型\n",
-                    "\n",
-                    "本 Notebook 对应阶段 5：问题四综合预测模型。目标是读取阶段 5 已生成的可复现结果，检查综合模型、误差比较和最终预测表。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 1：读取综合模型验证结果\n",
-                    "\n",
-                    "这段代码解决“综合模型是否比 baseline 更好”的问题。验证集使用 2022-03-01 至 2022-03-30，因为 2022-03-31 缺少外部变量。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "from pathlib import Path\n",
-                    "import pandas as pd\n",
-                    "ROOT = Path.cwd().parent if Path.cwd().name == 'notebooks' else Path.cwd()\n",
-                    "metrics = pd.read_csv(ROOT / 'tables/q4_store_product_model_metrics.csv')\n",
-                    "metrics[['model_label','MAE','RMSE','WAPE_pct']]\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：WAPE 越小，模型总体绝对误差占真实销量比例越低。综合模型必须和简单 baseline 放在一起比较。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 2：查看与问题一、问题二的比较\n",
-                    "\n",
-                    "这段代码解决“问题四是否相对前面模型有改进”的问题。不同粒度的误差需要在同一验证日期范围内比较。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "comparison = pd.read_csv(ROOT / 'tables/q4_comparison_with_previous_models.csv')\n",
-                    "comparison\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：`relative_wape_improvement_pct` 为相对 WAPE 改进比例。正值表示综合模型误差更低，负值表示没有改进。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 3：查看显著性检验\n",
-                    "\n",
-                    "这段代码解决“误差下降是否可能只是偶然”的问题。检验只说明验证误差差异，不证明模型在所有未来日期一定更好。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "tests = pd.read_csv(ROOT / 'tables/q4_significance_tests.csv')\n",
-                    "tests\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：p 值较小时，说明候选模型在该验证误差序列上低于基准模型的证据更强；若 p 值不小，则不能写“显著改进”。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 4：读取未来 7 天最终预测\n",
-                    "\n",
-                    "这段代码解决“最终提交的门店-商品预测结果是什么”的问题。未来天气和活动日为历史同期参考情景，不是附件观测值。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "forecast = pd.read_csv(ROOT / 'outputs/final_7day_forecast.csv')\n",
-                    "forecast.head()\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：每行是某天、某门店、某商品的预测销量。7 天汇总表见 `q4_store_product_forecast_7day_total.csv`。",
-                ],
-            },
-        ],
-        "metadata": {
-            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
-            "language_info": {"name": "python", "pygments_lexer": "ipython3"},
-        },
-        "nbformat": 4,
-        "nbformat_minor": 5,
-    }
-    (NOTEBOOKS / "07_final_prediction.ipynb").write_text(
-        json.dumps(nb, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
-
 def prepend_result_log(row: str) -> None:
     path = ROOT / "RESULT_LOG.md"
     text = path.read_text(encoding="utf-8")
@@ -860,7 +704,7 @@ def prepend_result_log(row: str) -> None:
 
 
 def main() -> None:
-    for path in [TABLES, FIGURES, OUTPUTS, NOTEBOOKS, PAPER]:
+    for path in [TABLES, FIGURES, OUTPUTS]:
         path.mkdir(parents=True, exist_ok=True)
 
     plt.rcParams["font.sans-serif"] = [
@@ -1414,11 +1258,6 @@ $$
 从模型比较看，若综合模型未通过显著性检验，则论文中不能写“综合模型显著优于前序模型”；只能写“在验证集上数值误差变化情况如下，并给出显著性检验结果”。本阶段仍不把天气、节假日和活动日解释为因果影响。
 """
 
-    upsert_section(PAPER / "model_building.md", "## 问题四模型建立", q4_model_building)
-    upsert_section(PAPER / "model_solution.md", "## 问题四模型求解", q4_model_solution)
-    upsert_section(PAPER / "result_analysis.md", "## 问题四结果分析", q4_result_analysis)
-    build_notebook()
-
     row = (
         f"| 2026-05-02 | 阶段 5 问题四综合预测模型 | processed: modeling_base_table.csv | "
         f"7日移动平均baseline、Ridge、RandomForest | 滞后销量、滚动均值、星期、月份、门店、商品、类别、天气、节假日、活动日 | "
@@ -1427,7 +1266,7 @@ $$
         f"2022-03-31 缺少外部变量未纳入综合验证；未来天气/活动日为历史同期参考情景；严格递推误差需与日滚动一步预测分开表述 | "
         f"停止在阶段 5，等待确认后进入阶段 6 完整论文写作 |"
     )
-    prepend_result_log(row)
+    # RESULT_LOG.md is maintained as a concise project-level summary.
 
     summary = {
         "validation_start": str(VALIDATION_START.date()),

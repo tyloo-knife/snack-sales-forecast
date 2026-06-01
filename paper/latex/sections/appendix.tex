@@ -1,7 +1,12 @@
 \appendix
 \section{附录}
 
-\subsection{主要代码文件}
+\subsection{代码文件清单与复现顺序}
+
+项目代码、数据处理说明和复现入口已整理在 GitHub 仓库：
+\url{https://github.com/tyloo-knife/snack-sales-forecast}。
+
+主要代码文件如下：
 
 \begin{itemize}
   \item 数据读取与清洗：\path{src/data_loader.py}、\path{src/preprocessing.py}
@@ -14,6 +19,18 @@
   \item 天气敏感性分析：\path{src/stage5_q4_weather_sensitivity.py}
   \item 间歇性需求审查：\path{src/intermittent_demand_review.py}
 \end{itemize}
+
+建议复现顺序如下：
+
+\begin{enumerate}
+  \item 安装依赖：在仓库根目录运行 \path{python -m pip install -r requirements.txt}。
+  \item 确认原始附件位于 \path{data/raw/}，处理后数据位于 \path{data/processed/}。
+  \item 运行问题二脚本：\path{python src/stage3_q2_analysis.py}。
+  \item 运行问题三脚本：\path{python src/stage4_q3_analysis.py}。
+  \item 运行问题四综合模型：\path{python src/stage5_q4_analysis.py}。
+  \item 运行严格 7 日递推验证：\path{python src/stage5_q4_recursive_validation.py}。
+  \item 运行误差诊断、天气敏感性和间歇性需求检查：依次执行 \path{src/stage5_q4_error_diagnosis.py}、\path{src/stage5_q4_weather_sensitivity.py}、\path{src/intermittent_demand_review.py}。
+\end{enumerate}
 
 \subsection{主要结果文件}
 
@@ -28,11 +45,11 @@
   \item 误差诊断：\path{outputs/q4_error_diagnosis_report.md}
   \item 天气敏感性检验：\path{outputs/q4_weather_sensitivity_report.md}
   \item 间歇性需求审查：\path{outputs/intermittent_demand_review.md}
-  \item 最终方法选择：\path{outputs/method_search/final_method_selection.md}
+  \item 实验结果摘要：\path{RESULT_LOG.md}
   \item 小数预测表：\path{outputs/final_7day_forecast.csv}
   \item 整数预测表：\path{outputs/final_7day_forecast_integer.csv}
 \end{itemize}
 
-\subsection{AI 工具使用说明}
+\subsection{辅助工具使用说明}
 
-AI 工具主要用于代码辅助、报告润色、审查提示、格式整理和 LaTeX 排版转换。字段解释、负销量口径、模型取舍、问题四验证口径和最终结论均需团队人工确认。AI 不替代团队对数据、模型和提交材料的最终判断。完整记录见 \path{outputs/ai_usage_record.md}。
+辅助工具主要用于代码排错、文档一致性检查和 LaTeX 排版整理。字段解释、负销量口径、模型取舍、问题四验证口径和最终结论均由小组成员依据附件数据和实验结果确认。若课程或竞赛要求单独披露辅助工具使用情况，可参考 \path{submission/ai_usage_record.md}。
