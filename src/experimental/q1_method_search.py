@@ -756,9 +756,9 @@ def plot_comparison(comparison: pd.DataFrame) -> None:
         subset = comparison[comparison["level"] == level].set_index("model_id").reindex(model_order).reset_index()
         x = np.arange(len(subset))
         bars = ax.bar(x, subset["WAPE_pct"], color="#3b82f6")
-        ax.set_title(level_titles[level], fontsize=11)
         ax.set_xticks(x)
         ax.set_xticklabels([label_map[m] for m in subset["model_id"]], rotation=35, ha="right", fontsize=8)
+        ax.set_xlabel(level_titles[level])
         ax.set_ylabel("WAPE (%)")
         ax.grid(axis="y", alpha=0.25)
         for bar, value in zip(bars, subset["WAPE_pct"], strict=False):
@@ -770,7 +770,6 @@ def plot_comparison(comparison: pd.DataFrame) -> None:
                 va="bottom",
                 fontsize=8,
             )
-    fig.suptitle("问题一候选模型 7 日总销量验证 WAPE 对比", fontsize=14)
     fig.tight_layout()
     fig.savefig(FIGURE_DIR / "q1_model_comparison.png", dpi=200)
     plt.close(fig)

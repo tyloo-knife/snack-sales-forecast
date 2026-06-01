@@ -875,7 +875,6 @@ def build_importance_figure(coef_table: pd.DataFrame, rf_importance: pd.DataFram
     ax.set_yticklabels(comp["factor_cn"])
     ax.invert_yaxis()
     ax.set_xlabel("归一化强度")
-    ax.set_title("问题三外部因素重要性比较")
     ax.legend()
     fig.tight_layout()
     fig.savefig(FIGURES / "q3_factor_importance_comparison.png", dpi=180)

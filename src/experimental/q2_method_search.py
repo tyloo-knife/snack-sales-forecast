@@ -628,7 +628,6 @@ def plot_aggregation_comparison(comparison: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(12, 6))
     bars = ax.barh(plot_df["strategy_label"], plot_df["WAPE_pct"], color=colors[: len(plot_df)])
     ax.set_xlabel("WAPE (%)")
-    ax.set_title("问题二不同聚合策略验证误差比较")
     ax.grid(axis="x", alpha=0.25)
     for bar, (_, row) in zip(bars, plot_df.iterrows(), strict=False):
         ax.text(

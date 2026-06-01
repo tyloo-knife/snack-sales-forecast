@@ -1220,7 +1220,6 @@ def plot_leaderboard(leaderboard: pd.DataFrame) -> None:
     ).fillna("#777777")
     ax.barh(plot_df["model_label"], plot_df["WAPE_pct"], color=colors)
     ax.set_xlabel("严格 7 日递推 WAPE (%)")
-    ax.set_title("问题四候选模型统一验证比较")
     for idx, row in enumerate(plot_df.itertuples()):
         ax.text(row.WAPE_pct + 0.2, idx, f"{row.WAPE_pct:.2f}%", va="center", fontsize=9)
     fig.tight_layout()
