@@ -109,7 +109,6 @@ def save_heatmap(corr: pd.DataFrame, path: Path, title: str) -> None:
         [short_label(c, 14) for c in corr.columns], rotation=50, ha="right", fontsize=8
     )
     ax.set_yticklabels([short_label(c, 14) for c in corr.index], fontsize=8)
-    ax.set_title(title, fontsize=16, pad=14)
     for i in range(len(corr.index)):
         for j in range(len(corr.columns)):
             val = data[i, j]
@@ -583,7 +582,6 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(12, 6))
     bar_df = category_stats.sort_values("total_sales", ascending=True)
     ax.barh(bar_df["category"], bar_df["total_sales"], color="#3A78B7")
-    ax.set_title("图9 各类别历史累计销量")
     ax.set_xlabel("累计销量")
     for i, v in enumerate(bar_df["total_sales"]):
         ax.text(v, i, f"{v:.0f}", va="center", fontsize=9)
@@ -598,7 +596,6 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(14, 7))
     for cat, g in trend.groupby("category"):
         ax.plot(g["date"], g["rolling_7d_sales"], label=cat, linewidth=1.5)
-    ax.set_title("图10 类别日销量 7 日滚动均值趋势")
     ax.set_xlabel("日期")
     ax.set_ylabel("7 日滚动平均销量")
     ax.legend(ncol=2, fontsize=9)
@@ -614,7 +611,6 @@ def main() -> None:
     ax.set_xticks(range(len(plot_df)))
     ax.set_xticklabels(plot_df["label"], rotation=30, ha="right", fontsize=9)
     ax.set_ylabel("WAPE (%)")
-    ax.set_title("图11 类别预测方法 WAPE 比较")
     for i, v in enumerate(plot_df["WAPE_pct"]):
         ax.text(i, v, f"{v:.1f}%", ha="center", va="bottom", fontsize=9)
     fig.tight_layout()
@@ -632,7 +628,6 @@ def main() -> None:
     ax.set_xticks(range(len(plot_df)))
     ax.set_xticklabels(plot_df["label"], rotation=30, ha="right", fontsize=9)
     ax.set_ylabel("WAPE (%)")
-    ax.set_title("图12 门店-类别预测方法 WAPE 比较")
     for i, v in enumerate(plot_df["WAPE_pct"]):
         ax.text(i, v, f"{v:.1f}%", ha="center", va="bottom", fontsize=9)
     fig.tight_layout()
@@ -650,7 +645,6 @@ def main() -> None:
     ax.set_yticks(range(len(pivot_sc.index)))
     ax.set_xticklabels(pivot_sc.columns, rotation=35, ha="right")
     ax.set_yticklabels(pivot_sc.index)
-    ax.set_title("图13 门店-类别历史销量热力图")
     for i in range(pivot_sc.shape[0]):
         for j in range(pivot_sc.shape[1]):
             ax.text(j, i, f"{pivot_sc.values[i, j]:.0f}", ha="center", va="center", fontsize=8)
