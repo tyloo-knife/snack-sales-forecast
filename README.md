@@ -90,7 +90,7 @@ python src/stage5_q4_weather_sensitivity.py
 python src/intermittent_demand_review.py
 ```
 
-脚本输出目录为 `outputs/`、`tables/` 和 `figures/`。其中 `outputs/*.md` 为内部过程记录和复现说明，电子附件优先提交最终预测明细 CSV、关键结果表图和 `src/` 代码；如需提交过程报告，应以当前改写后的正式版本为准。最终预测采用低销量指数平滑与常规序列 Ridge 的混合策略，提交副本位于 `submission/`。
+脚本输出目录为 `outputs/`、`tables/` 和 `figures/`。其中 `outputs/*.md` 为内部过程记录和复现说明；关键产物包括 `tables/q3_regression_coefficients_external.csv`、`tables/q3_weekend_supplement_coefficient.csv`、`tables/q4_significance_tests.csv`、`tables/q4_significance_tests_daily.csv`，以及最终预测明细 `outputs/final_7day_forecast_hybrid_low_volume_integer.csv` 和连续预测表 `outputs/final_7day_forecast_hybrid_low_volume.csv`。电子附件优先提交最终预测明细 CSV、关键结果表图和 `src/` 代码；如需提交过程报告，应以当前改写后的正式版本为准。最终预测采用低销量指数平滑与常规序列 Ridge 的混合策略，提交副本位于 `submission/`。
 
 ## 论文编译
 
