@@ -8,6 +8,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -400,6 +401,126 @@ def metrics_by_demand_class(preds: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values(["demand_class", "WAPE", "model"]).reset_index(drop=True)
 
 
+def bootstrap_wape_diff_by_window(
+    preds: pd.DataFrame,
+    baseline_model: str,
+    candidate_model: str,
+    n_bootstrap: int = 5000,
+    seed: int = 42,
+) -> tuple[float, float, float]:
+    """Bootstrap WAPE difference in percentage points by resampling 7-day windows."""
+    subset = preds[preds["model"].isin([baseline_model, candidate_model])].copy()
+    window_rows = []
+    for window_start, group in subset.groupby("window_start", dropna=False):
+        base = group[group["model"] == baseline_model]
+        cand = group[group["model"] == candidate_model]
+        actual_sum = float(base["actual"].sum())
+        base_abs = float((base["actual"] - base["prediction"]).abs().sum())
+        cand_abs = float((cand["actual"] - cand["prediction"]).abs().sum())
+        window_rows.append(
+            {
+                "window_start": pd.Timestamp(window_start),
+                "actual_sum": actual_sum,
+                "baseline_abs_error_sum": base_abs,
+                "candidate_abs_error_sum": cand_abs,
+            }
+        )
+    blocks = pd.DataFrame(window_rows)
+    if blocks.empty or blocks["actual_sum"].sum() == 0:
+        return np.nan, np.nan, np.nan
+    point = (
+        blocks["baseline_abs_error_sum"].sum() / blocks["actual_sum"].sum()
+        - blocks["candidate_abs_error_sum"].sum() / blocks["actual_sum"].sum()
+    ) * 100
+    rng = np.random.default_rng(seed)
+    values = []
+    block_idx = np.arange(len(blocks))
+    for _ in range(n_bootstrap):
+        sampled = blocks.iloc[rng.choice(block_idx, size=len(block_idx), replace=True)]
+        actual_sum = float(sampled["actual_sum"].sum())
+        if actual_sum == 0:
+            continue
+        diff = (
+            sampled["baseline_abs_error_sum"].sum() / actual_sum
+            - sampled["candidate_abs_error_sum"].sum() / actual_sum
+        ) * 100
+        values.append(diff)
+    if not values:
+        return point, np.nan, np.nan
+    lower, upper = np.percentile(values, [2.5, 97.5])
+    return float(point), float(lower), float(upper)
+
+
+def paired_significance_tests(preds: pd.DataFrame) -> pd.DataFrame:
+    """Test whether candidate models reduce strict-recursive errors versus Q1 SES."""
+    baseline_model = "q1_store_product_exp_smoothing"
+    candidate_specs = [
+        ("ridge_full_external", "综合 Ridge vs 问题一简单指数平滑"),
+        ("hybrid_low_q1_regular_ridge", "低销量混合策略 vs 问题一简单指数平滑"),
+    ]
+    labels = preds[["model", "model_label"]].drop_duplicates().set_index("model")["model_label"]
+    rows = []
+    for candidate_model, comparison in candidate_specs:
+        base = preds[preds["model"] == baseline_model].copy()
+        cand = preds[preds["model"] == candidate_model].copy()
+        key_cols = ["window_start", "window_end", "store_id", "store_name", "product_id", "product_name", "category"]
+        base_grouped = (
+            base.groupby(key_cols, as_index=False, dropna=False)
+            .agg(actual_sum=("actual", "sum"), baseline_abs_error=("abs_error", "sum"))
+        )
+        cand_grouped = (
+            cand.groupby(key_cols, as_index=False, dropna=False)
+            .agg(candidate_abs_error=("abs_error", "sum"))
+        )
+        paired = base_grouped.merge(cand_grouped, on=key_cols, how="inner")
+        diff = paired["baseline_abs_error"] - paired["candidate_abs_error"]
+        baseline_wape = float(base["abs_error"].sum() / base["actual"].sum() * 100)
+        candidate_wape = float(cand["abs_error"].sum() / cand["actual"].sum() * 100)
+        wape_diff, ci_low, ci_high = bootstrap_wape_diff_by_window(
+            preds, baseline_model, candidate_model
+        )
+        if len(diff) < 3 or np.allclose(diff, 0):
+            wilcoxon_stat = np.nan
+            wilcoxon_p = np.nan
+            note = "配对差值不足或全为 0，Wilcoxon 不适用"
+        else:
+            result = stats.wilcoxon(
+                paired["baseline_abs_error"],
+                paired["candidate_abs_error"],
+                alternative="greater",
+                zero_method="wilcox",
+            )
+            wilcoxon_stat = float(result.statistic)
+            wilcoxon_p = float(result.pvalue)
+            note = "p<0.05 且 CI 不含 0 才判定误差显著下降"
+        if pd.notna(wilcoxon_p) and wilcoxon_p < 0.05 and ci_low > 0:
+            conclusion = "达到统计显著改进"
+        else:
+            conclusion = "未达统计显著改进"
+        rows.append(
+            {
+                "comparison": comparison,
+                "baseline_model": baseline_model,
+                "baseline_label": labels.get(baseline_model, baseline_model),
+                "candidate_model": candidate_model,
+                "candidate_label": labels.get(candidate_model, candidate_model),
+                "paired_unit": "window_start + store_id + product_id 的 7 日绝对误差",
+                "n_pairs": int(len(paired)),
+                "baseline_WAPE_pct": baseline_wape,
+                "candidate_WAPE_pct": candidate_wape,
+                "WAPE_diff_baseline_minus_candidate_pct_points": wape_diff,
+                "wilcoxon_stat": wilcoxon_stat,
+                "wilcoxon_p_value_greater": wilcoxon_p,
+                "bootstrap_n": 5000,
+                "bootstrap_CI_lower_pct_points": ci_low,
+                "bootstrap_CI_upper_pct_points": ci_high,
+                "conclusion": conclusion,
+                "note": note,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def classification_summary(cls: pd.DataFrame) -> pd.DataFrame:
     out = (
         cls.groupby(["window_start", "demand_class", "is_low_volume"], as_index=False)
@@ -430,7 +551,6 @@ def plot_strategy_wape(metrics: pd.DataFrame) -> None:
     colors = ["#2F6B55" if model == sp.iloc[0]["model"] else "#6B7280" for model in sp["model"]]
     plt.barh(labels, values, color=colors)
     plt.xlabel("WAPE (%)")
-    plt.title("Strict recursive 7-day low-volume strategy comparison")
     for idx, value in enumerate(values):
         plt.text(value + 0.2, idx, f"{value:.2f}%", va="center", fontsize=9)
     plt.tight_layout()
@@ -442,6 +562,7 @@ def build_report(
     metrics: pd.DataFrame,
     by_class: pd.DataFrame,
     cls_summary: pd.DataFrame,
+    significance: pd.DataFrame,
 ) -> str:
     sp = metrics[metrics["level"] == "store_product"].copy()
     sp_table = sp[
@@ -513,6 +634,12 @@ def build_report(
 
 {best_note}
 
+## 6. 误差显著性检验
+
+{df_to_md(significance, 10)}
+
+检验以同一严格 7 日递推验证集为基础。Wilcoxon 检验的配对单位为“验证窗口 × 门店--商品序列”的 7 日绝对误差；bootstrap 置信区间按 7 日窗口块重采样计算 WAPE 差。若 p 值不小于 0.05 或置信区间包含 0，本文不写“误差显著改进”。
+
 论文建议把低销量分析写入模型评价和局限性部分：低销量序列是细粒度误差的主要来源之一；简单的层级收缩可作为稳健性检查，但若未显著优于主模型，就不应为了“看起来高级”而替换最终预测模型。
 """
 
@@ -538,12 +665,14 @@ def main() -> None:
     metrics = metric_table(strategy_preds)
     by_class = metrics_by_demand_class(strategy_preds)
     cls_summary = classification_summary(cls)
+    significance = paired_significance_tests(strategy_preds)
     save_csv(metrics, "q4_low_volume_strategy_metrics.csv")
     save_csv(by_class, "q4_low_volume_strategy_by_class.csv")
     save_csv(cls_summary, "q4_low_volume_classification_summary.csv")
+    save_csv(significance, "q4_significance_tests.csv")
     plot_strategy_wape(metrics)
 
-    report = build_report(metrics, by_class, cls_summary)
+    report = build_report(metrics, by_class, cls_summary, significance)
     (OUTPUTS / "q4_low_volume_strategy_report.md").write_text(report, encoding="utf-8")
 
     sp = metrics[metrics["level"] == "store_product"].set_index("model")

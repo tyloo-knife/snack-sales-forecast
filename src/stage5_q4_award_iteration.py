@@ -720,7 +720,6 @@ def plot_outputs(
     colors = ["#2F6B55" if m == CURRENT_MODEL else "#6B7280" for m in sp["model"]]
     ax.barh(labels, sp["WAPE_pct"], color=colors)
     ax.set_xlabel("WAPE (%)")
-    ax.set_title("严格递推候选模型 WAPE 前 12")
     for idx, row in enumerate(sp.itertuples()):
         ax.text(row.WAPE_pct + 0.15, idx, f"{row.WAPE_pct:.2f}%", va="center", fontsize=8)
     fig.tight_layout()
@@ -732,7 +731,6 @@ def plot_outputs(
     ax.bar(horizon["horizon"].astype(str), horizon["WAPE_pct"], color="#4C78A8")
     ax.set_xlabel("预测步长 horizon")
     ax.set_ylabel("WAPE (%)")
-    ax.set_title("当前混合策略按 horizon 的严格递推误差")
     for idx, row in enumerate(horizon.itertuples()):
         ax.text(idx, row.WAPE_pct + 0.6, f"{row.WAPE_pct:.1f}%", ha="center", fontsize=8)
     fig.tight_layout()
@@ -754,7 +752,6 @@ def plot_outputs(
         capsize=3,
     )
     ax.set_xlabel("未来 7 天预测销量")
-    ax.set_title("门店未来 7 天预测及经验残差区间")
     fig.tight_layout()
     fig.savefig(FIGURES / "final_forecast_interval_by_store.png", dpi=180)
     plt.close(fig)
@@ -768,7 +765,6 @@ def plot_outputs(
         fig, ax = plt.subplots(figsize=(10, 5.4))
         ax.barh(store_total["store_name"], store_total["predicted_7day_sales"], color="#2F6B55")
         ax.set_xlabel("预测 7 日销量")
-        ax.set_title("低销量混合策略门店 7 日预测总量")
         for idx, row in enumerate(store_total.itertuples()):
             ax.text(
                 row.predicted_7day_sales + 3,
@@ -787,7 +783,6 @@ def plot_outputs(
         fig, ax = plt.subplots(figsize=(10, 5.4))
         ax.barh(category_total["category"], category_total["predicted_7day_sales"], color="#4C78A8")
         ax.set_xlabel("预测 7 日销量")
-        ax.set_title("低销量混合策略类别 7 日预测总量")
         for idx, row in enumerate(category_total.itertuples()):
             ax.text(
                 row.predicted_7day_sales + 3,

@@ -1,6 +1,6 @@
 # 问题四低销量序列鲁棒性策略检验报告
 
-执行日期：2026-05-31
+执行日期：2026-06-01
 
 ## 1. 检验目的
 
@@ -62,5 +62,14 @@
 严格递推门店-商品粒度下，本检验最佳策略为 **低销量指数平滑-常规Ridge混合**，WAPE=75.85%。问题一简单指数平滑 WAPE=76.35%，完整综合 Ridge WAPE=76.68%。
 
 可作为论文中的稳健性补充方案，但仍需说明其只是规则化后处理。
+
+## 6. 误差显著性检验
+
+| comparison | baseline_model | baseline_label | candidate_model | candidate_label | paired_unit | n_pairs | baseline_WAPE_pct | candidate_WAPE_pct | WAPE_diff_baseline_minus_candidate_pct_points | wilcoxon_stat | wilcoxon_p_value_greater | bootstrap_n | bootstrap_CI_lower_pct_points | bootstrap_CI_upper_pct_points | conclusion | note |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 综合 Ridge vs 问题一简单指数平滑 | q1_store_product_exp_smoothing | 问题一简单指数平滑 | ridge_full_external | 完整综合Ridge | window_start + store_id + product_id 的 7 日绝对误差 | 304 | 76.346 | 76.684 | -0.338 | 23332.000 | 0.461 | 5000 | -1.560 | 1.508 | 未达统计显著改进 | p<0.05 且 CI 不含 0 才判定误差显著下降 |
+| 低销量混合策略 vs 问题一简单指数平滑 | q1_store_product_exp_smoothing | 问题一简单指数平滑 | hybrid_low_q1_regular_ridge | 低销量指数平滑-常规Ridge混合 | window_start + store_id + product_id 的 7 日绝对误差 | 304 | 76.346 | 75.853 | 0.494 | 9698.000 | 0.050 | 5000 | -0.719 | 1.335 | 未达统计显著改进 | p<0.05 且 CI 不含 0 才判定误差显著下降 |
+
+检验以同一严格 7 日递推验证集为基础。Wilcoxon 检验的配对单位为“验证窗口 × 门店--商品序列”的 7 日绝对误差；bootstrap 置信区间按 7 日窗口块重采样计算 WAPE 差。若 p 值不小于 0.05 或置信区间包含 0，本文不写“误差显著改进”。
 
 论文建议把低销量分析写入模型评价和局限性部分：低销量序列是细粒度误差的主要来源之一；简单的层级收缩可作为稳健性检查，但若未显著优于主模型，就不应为了“看起来高级”而替换最终预测模型。

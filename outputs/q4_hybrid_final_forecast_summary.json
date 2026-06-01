@@ -5,5 +5,6 @@
   "total_series": 76,
   "future_total_sales": 1329.8939989742807,
   "future_integer_total_sales": 1328,
-  "original_ridge_total_sales": 1311.2940321631913
+  "original_ridge_total_sales": 1311.2940321631913,
+  "integer_aggregation_rule": "only round nonnegative store-product-date cells; all upper totals are sums of that integer matrix"
 }

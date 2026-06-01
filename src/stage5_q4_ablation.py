@@ -508,7 +508,6 @@ def plot_store_product_wape(metrics: pd.DataFrame) -> None:
     colors = ["#2F6B55" if m == "q1_store_product_exp_smoothing" else "#6B7280" for m in sp["model"]]
     plt.barh(labels, values, color=colors)
     plt.xlabel("WAPE (%)")
-    plt.title("Q4 strict recursive 7-day ablation at store-product level")
     for idx, value in enumerate(values):
         plt.text(value + 0.25, idx, f"{value:.2f}%", va="center", fontsize=9)
     plt.tight_layout()
