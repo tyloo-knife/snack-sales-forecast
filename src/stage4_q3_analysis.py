@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -252,7 +253,7 @@ def main() -> None:
         ("风力", "wind_power", "存在", "附件二 `风力` 字段，单位待确认"),
         ("是否节假日", "is_holiday", "存在", "由节日字段转换"),
         ("是否周末", "is_weekend", "存在", "由日期星期转换"),
-        ("是否活动日", "is_activity_day", "存在", "人工确认为门店促销活动日"),
+        ("是否活动日", "is_activity_day", "存在", "附件二 0/1 活动日字段，作为门店活动日标记"),
         ("星期", "weekday", "存在", "周一=1，周日=7"),
         ("月份", "month", "存在", "日期月份"),
         ("门店", "store_id", "存在", "门店编号控制变量"),
@@ -396,7 +397,7 @@ def main() -> None:
     formula_controlled = (
         "log_positive_sales ~ C(weather_group, Treatment(reference='no_precip')) "
         "+ avg_temperature + temperature_range + wind_power "
-        "+ is_holiday + is_weekend + is_activity_day "
+        "+ is_holiday + is_activity_day "
         "+ lag_7 + rolling_28_prev "
         "+ C(weekday_str) + C(month_str) + C(store_id_str) + C(product_id_str)"
     )
@@ -445,12 +446,23 @@ def main() -> None:
     ] = "该天气组合样本天数少，系数需谨慎解释"
     reg_external = reg_external.sort_values("comparable_abs_effect", ascending=False)
     save_csv(reg_external, "q3_regression_coefficients_external.csv", True)
+    weekend_supplement = regression_external_coefficients(
+        weekend_model, iqr_map, weather_day_counts
+    )
+    weekend_supplement = weekend_supplement[
+        weekend_supplement["term"] == "is_weekend"
+    ].copy()
+    weekend_supplement["source_model"] = "weekend_effect_model_without_weekday_fe"
+    weekend_supplement[
+        "sample_size_note"
+    ] = "补充模型；不含星期固定效应，主模型不单独识别周末效应"
+    save_csv(weekend_supplement, "q3_weekend_supplement_coefficient.csv", True)
 
     regression_model_summary = pd.DataFrame(
         [
             {
                 "model": "controlled_product_fixed_effect",
-                "description": "log(1+销量) ~ 合并天气、平均温度、昼夜温差、风力、节假日、周末、活动日、历史控制 + 星期、月份、门店、商品固定效应",
+                "description": "log(1+销量) ~ 合并天气、平均温度、昼夜温差、风力、节假日、活动日、历史控制 + 星期、月份、门店、商品固定效应",
                 "nobs": int(controlled_model.nobs),
                 "r_squared": float(controlled_model.rsquared),
                 "adj_r_squared": float(controlled_model.rsquared_adj),
@@ -616,7 +628,17 @@ def main() -> None:
         else:
             sub = reg_external[reg_external["factor"] == factor]
             if sub.empty:
-                effect, direction, p_value = 0.0, "无法估计", np.nan
+                if factor == "is_weekend":
+                    sub = weekend_supplement
+                    main_limitation = (
+                        "周末与星期固定效应机械共线；此处为不含星期固定效应的补充模型结果"
+                    )
+                if sub.empty:
+                    effect, direction, p_value = 0.0, "无法估计", np.nan
+                else:
+                    effect = float(sub["comparable_abs_effect"].iloc[0])
+                    direction = str(sub["direction"].iloc[0])
+                    p_value = float(sub["p_value"].iloc[0])
             else:
                 effect = float(sub["comparable_abs_effect"].iloc[0])
                 direction = str(sub["direction"].iloc[0])
@@ -719,7 +741,7 @@ def main() -> None:
     fig.savefig(FIGURES / "q3_random_forest_permutation_importance.png", bbox_inches="tight")
     plt.close(fig)
 
-    weather_coeffs = reg_external[reg_external["factor"] == "weather"].copy()
+    weather_coeffs = reg_external[reg_external["factor"] == "weather_group"].copy()
     if not weather_coeffs.empty:
         fig, ax = plt.subplots(figsize=(12, 6))
         plot_wc = weather_coeffs.sort_values("coef")
@@ -774,15 +796,15 @@ def main() -> None:
 
 本阶段仍使用 `positive_sales` 作为销量口径。负销量已在前序阶段确认为损耗或冲销类调整，不代表顾客正向购买需求。
 
-## 2. 什么是外部因素统计关联分析
+## 2. 外部因素关联分析方法
 
-外部因素统计关联分析的直觉是：在销量变化时，检查天气、节假日、活动日等变量是否也发生系统性变化。数学上，本阶段使用两类方法：一是描述性统计，比较不同外部状态下的平均日销量；二是回归模型，在控制门店、商品、星期、月份后，估计外部变量与销量之间的条件统计关联。
+外部因素统计关联分析用于检验天气、节假日、活动日等变量与销量变化之间是否存在系统性关系。本阶段使用两类方法：一是描述性统计，比较不同外部状态下的平均日销量；二是回归模型，在控制门店、商品、星期、月份后，估计外部变量与销量之间的条件统计关联。
 
-## 3. 为什么不能轻易说因果影响
+## 3. 因果识别的局限
 
 当前数据不是随机实验，也没有明确的准实验识别设计。天气、节假日、促销活动和客流变化可能同时出现，门店和商品本身也存在固定需求差异。因此，即使某个外部变量的回归系数显著，也只能写为“在控制若干因素后呈现统计关联”，不能写为“该因素导致销量增加”。
 
-## 4. 如何控制混杂因素
+## 4. 混杂因素的控制
 
 本阶段在主要回归中加入门店固定效应、商品固定效应、星期固定效应和月份固定效应：
 
@@ -823,7 +845,7 @@ $$
 y_{{i,t}}=\\beta_0+\\beta_1Weather_t+\\beta_2Temp_t+\\beta_3Wind_t+\\beta_4Holiday_t+\\beta_5Activity_t+\\gamma_s+\\delta_p+\\eta_w+\\mu_m+\\varepsilon_{{i,t}}
 $$
 
-其中，$y_{{i,t}}$ 表示第 $t$ 天某门店-商品组合的正向销量，$Weather_t$ 为天气类型，$Temp_t$ 包括最高温和最低温，$Wind_t$ 为风力，$Holiday_t$ 为节假日变量，$Activity_t$ 为活动日变量，$\\gamma_s$、$\\delta_p$、$\\eta_w$、$\\mu_m$ 分别表示门店、商品、星期和月份控制变量。标准误按日期聚类，以降低同一天外部变量重复出现造成的显著性夸大。
+其中，$y_{{i,t}}$ 表示第 $t$ 天某门店-商品组合的正向销量，$Weather_t$ 为天气类型，$Temp_t$ 包括平均温度和昼夜温差，$Wind_t$ 为风力，$Holiday_t$ 为节假日变量，$Activity_t$ 为活动日变量，$\\gamma_s$、$\\delta_p$、$\\eta_w$、$\\mu_m$ 分别表示门店、商品、星期和月份控制变量。标准误按门店-商品组合聚类，以控制同一销售序列内误差相关。
 
 回归模型摘要：
 
@@ -835,7 +857,7 @@ $$
 
 ## 8. 随机森林特征重要性
 
-本阶段补充随机森林模型，原因是外部因素与销量之间可能存在非线性统计关系，例如温度过高或过低时，销量与温度的关联不一定保持线性。随机森林使用的特征包括天气、最高温、最低温、风力、节假日、周末、活动日、星期、月份、门店、商品和商品类别。该模型用于特征重要性分析，不用于证明因果关系。
+本阶段补充随机森林模型，原因是外部因素与销量之间可能存在非线性统计关系，例如温度过高或过低时，销量与温度的关联不一定保持线性。随机森林使用的特征包括天气、平均温度、昼夜温差、风力、节假日、周末、活动日、星期、月份、门店、商品和商品类别。该模型用于特征重要性分析，不用于证明因果关系。
 
 LightGBM 在当前环境中不可用；SHAP 也不可用。考虑到本题本科数学建模论文需要可解释、可复现，且回归模型已经提供关联方向解释，因此本阶段不用 SHAP，改用 sklearn 的置换重要性。置换重要性表示打乱某一特征后验证集 MAE 增加多少，只能说明预测贡献，不能说明销量变化方向。
 
@@ -867,7 +889,7 @@ LightGBM 在当前环境中不可用；SHAP 也不可用。考虑到本题本科
 
     q3_model_building = """## 问题三模型建立
 
-问题三分析天气、节假日、活动日等外部因素与零食销量之间的统计关联。本文将外部因素构造为分类变量和连续变量：天气类型为分类变量，最高温、最低温和风力为连续变量，节假日、周末、活动日为 0-1 变量，星期、月份、门店、商品和类别作为控制或分组变量。原始附件中没有湿度字段，因此不构造湿度变量。
+问题三分析天气、节假日、活动日等外部因素与零食销量之间的统计关联。本文将外部因素构造为分类变量和连续变量：天气类型为分类变量，平均温度、昼夜温差和风力为连续变量，节假日、周末、活动日为 0-1 变量，星期、月份、门店、商品和类别作为控制或分组变量。原始附件中没有湿度字段，因此不构造湿度变量。
 
 ### 描述性统计模型
 
@@ -937,7 +959,7 @@ $$
     best_factor = factor_summary.iloc[0]
     row = (
         f"| 2026-05-02 | 阶段 4 问题三外部因素统计关联分析 | processed: modeling_base_table.csv | "
-        f"描述性统计、控制变量回归、随机森林置换重要性 | 天气、最高温、最低温、风力、节假日、周末、活动日、星期、月份、门店、商品、类别 | "
+        f"描述性统计、控制变量回归、随机森林置换重要性 | 天气、平均温度、昼夜温差、风力、节假日、周末、活动日、星期、月份、门店、商品、类别 | "
         f"控制变量回归 R2={controlled_model.rsquared:.3f}；随机森林验证 WAPE={rf_metrics['WAPE'].iloc[0]*100:.2f}% | "
         f"已完成外部因素变量构造、描述性分析、回归分析和特征重要性排序；按回归可比关联强度排序首位为 {best_factor['factor']}，但需结合稳定性解释 | "
         f"湿度字段不存在；结论只能表述为统计关联，不能写因果；周末与星期固定效应存在共线关系 | "

@@ -62,9 +62,9 @@ GitHub 仓库地址：[https://github.com/tyloo-knife/snack-sales-forecast](http
 | `submission/final_7day_forecast.csv` | 提交用连续预测表 |
 | `submission/final_7day_forecast_integer.csv` | 提交用整数预测表 |
 
-## 复现方式
+## 复现说明
 
-建议使用 Python 3.10 及以上版本。
+运行环境为 Python 3.10 及以上版本。
 
 ```powershell
 python -m venv .venv
@@ -72,7 +72,7 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-按下列顺序运行主要脚本：
+主要脚本的复现顺序如下：
 
 ```powershell
 python src/stage2_q1_figures.py
@@ -90,7 +90,7 @@ python src/stage5_q4_weather_sensitivity.py
 python src/intermittent_demand_review.py
 ```
 
-脚本输出会写入 `outputs/`、`tables/` 和 `figures/`。最终预测采用低销量指数平滑与常规序列 Ridge 的混合策略，提交副本位于 `submission/`。
+脚本输出目录为 `outputs/`、`tables/` 和 `figures/`。其中 `outputs/*.md` 为内部过程记录和复现说明，电子附件优先提交最终预测明细 CSV、关键结果表图和 `src/` 代码；如需提交过程报告，应以当前改写后的正式版本为准。最终预测采用低销量指数平滑与常规序列 Ridge 的混合策略，提交副本位于 `submission/`。
 
 ## 论文编译
 
@@ -102,11 +102,12 @@ latexmk -xelatex -interaction=nonstopmode main.tex
 Copy-Item main.pdf ..\..\submission\final_paper.pdf -Force
 ```
 
-如需修改封面成员信息，可编辑 `paper/cover_member_info.csv` 后运行 `python src/fill_cover_members.py`，再重新编译论文。
+封面成员信息来源于 `paper/cover_member_info.csv`，最终 PDF 以 `submission/final_paper.pdf` 为准。
 
 ## 审查说明
 
 - 仓库保留原始数据、处理后数据、核心脚本、论文源文件、关键结果表图和最终提交材料。
 - 天气、节假日、活动日等外部因素只解释为统计关联，不写成因果结论。
 - 预测结果均来自附件数据和项目脚本计算，不手工编造指标或图表。
-- 若课程或竞赛要求披露辅助工具使用情况，可参考 `submission/ai_usage_record.md`；若无此要求，提交论文和预测表即可。
+- `outputs/*.md` 仅作过程追溯，不替代最终论文和正式提交表。
+- 辅助工具使用记录单独存放于 `submission/ai_usage_record.md`，按课程或竞赛提交规则处理。

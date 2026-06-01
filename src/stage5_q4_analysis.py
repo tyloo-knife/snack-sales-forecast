@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -892,7 +893,7 @@ def main() -> None:
             )
         )
     tests_df = pd.DataFrame(tests)
-    save_csv(tests_df, "q4_significance_tests.csv", True)
+    save_csv(tests_df, "q4_significance_tests_daily.csv", True)
 
     # Train final comprehensive model and recursively forecast future 7 days.
     final_train = feature_df[
@@ -1077,15 +1078,15 @@ def main() -> None:
 
 问题四要求结合前三问模型和结论，预测各门店各种零食未来 7 天总销量，并与问题一、问题二模型比较误差是否有显著改进。本阶段以 `store_id + product_id` 作为门店-商品粒度，继续使用 `positive_sales` 作为顾客正向需求销量口径。
 
-## 2. 什么是综合预测模型
+## 2. 综合模型构成
 
-综合预测模型是把多类信息放进同一个模型：历史销量滞后项、滚动均值、星期月份、门店、商品、类别、天气、节假日和活动日。直觉上，它既保留问题一的时间序列规律，也吸收问题二的类别信息和问题三的外部因素统计关联。
+综合预测模型将多类信息纳入同一建模框架，包括历史销量滞后项、滚动均值、星期月份、门店、商品、类别、天气、节假日和活动日。该模型保留问题一的时间序列规律，同时吸收问题二的类别信息和问题三的外部因素统计关联。
 
-## 3. 为什么要和问题一、问题二模型比较
+## 3. 与前序模型的比较口径
 
-复杂模型只有在同一验证集上明显优于简单模型时才有价值。问题一提供门店-商品层级的简单时间序列基准，问题二提供类别聚合基准；问题四必须与它们比较，才能判断“综合”是否真的带来误差下降。
+综合模型是否具有实际价值，需要在同一验证集和同一评价口径下与简单基准模型比较。问题一提供门店-商品层级的简单时间序列基准，问题二提供类别聚合基准；问题四据此判断综合建模是否带来误差下降。
 
-## 4. 什么叫误差改进是否显著
+## 4. 误差显著性的判定标准
 
 本阶段先比较 MAE、RMSE、WAPE 的数值差异，再对同一验证日期上的绝对误差做配对 t 检验、Wilcoxon 检验和简化 Diebold-Mariano 检验。显著性检验只能说明验证误差差异是否较稳定，不能证明未来一定更好。
 
@@ -1163,7 +1164,7 @@ Ridge 回归适合解释线性加权关系，随机森林适合捕捉非线性�
 
 {df_to_md(tests_report, 10)}
 
-解释：检验使用每日绝对误差总和作为配对序列。若 p 值小于 0.05，可写为验证误差下降具有统计证据；否则只能写“数值上下降/未能证明显著下降”。当前门店-商品层级结论为：{significant_note}。
+解释：检验使用每日绝对误差总和作为配对序列。若 p 值小于 0.05，表述为验证误差下降具有统计证据；否则只能表述为“数值上下降/未能证明显著下降”。当前门店-商品层级结论为：{significant_note}。
 
 ## 14. 未来 7 天预测结果
 
@@ -1224,7 +1225,7 @@ $$
 
 {df_to_md(recursive_comparison_store_product[["model_label", "daily_WAPE_pct", "recursive_WAPE_pct", "WAPE_change_pct_points", "recursive_result"]], 20)}
 
-与前序模型比较如下：
+与前序模型的比较结果如下：
 
 {df_to_md(comparison_report[["level", "previous_model", "previous_WAPE_pct", "q4_model", "q4_WAPE_pct", "relative_wape_improvement_pct"]], 10)}
 

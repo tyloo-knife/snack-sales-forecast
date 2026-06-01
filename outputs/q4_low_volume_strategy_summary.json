@@ -5,10 +5,10 @@
     {
       "model": "hybrid_low_q1_regular_ridge",
       "model_label": "低销量指数平滑-常规Ridge混合",
-      "MAE": 1.8039947417877944,
-      "RMSE": 3.7184078607622046,
-      "WAPE": 0.7585261431583534,
-      "WAPE_pct": 75.85261431583534
+      "MAE": 1.8039947419118425,
+      "RMSE": 3.7184078607086852,
+      "WAPE": 0.7585261432105119,
+      "WAPE_pct": 75.85261432105119
     },
     {
       "model": "q1_store_product_exp_smoothing",
@@ -21,18 +21,18 @@
     {
       "model": "hybrid_low_shrunk_regular_ridge",
       "model_label": "低销量收缩-常规Ridge混合",
-      "MAE": 1.823175817593253,
-      "RMSE": 3.7093389752204677,
-      "WAPE": 0.7665912151429446,
-      "WAPE_pct": 76.65912151429445
+      "MAE": 1.8231758177173014,
+      "RMSE": 3.7093389751668178,
+      "WAPE": 0.7665912151951032,
+      "WAPE_pct": 76.65912151951032
     },
     {
       "model": "ridge_full_external",
       "model_label": "完整综合Ridge",
-      "MAE": 1.8237641830607354,
-      "RMSE": 3.702480935647709,
-      "WAPE": 0.7668386053256757,
-      "WAPE_pct": 76.68386053256756
+      "MAE": 1.8237641832451792,
+      "RMSE": 3.7024809356065886,
+      "WAPE": 0.7668386054032289,
+      "WAPE_pct": 76.6838605403229
     },
     {
       "model": "q1_low_volume_shrunk",
@@ -45,12 +45,12 @@
     {
       "model": "ridge_low_volume_shrunk",
       "model_label": "低销量收缩Ridge",
-      "MAE": 1.837725905123184,
-      "RMSE": 3.7045034779042623,
-      "WAPE": 0.7727090942703291,
-      "WAPE_pct": 77.2709094270329
+      "MAE": 1.8377259052748585,
+      "RMSE": 3.7045034778566066,
+      "WAPE": 0.7727090943341036,
+      "WAPE_pct": 77.27090943341037
     }
   ],
   "best_store_product_model": "hybrid_low_q1_regular_ridge",
-  "best_store_product_wape_pct": 75.85261431583534
+  "best_store_product_wape_pct": 75.85261432105119
 }

@@ -34,7 +34,7 @@ def read_members(path: Path) -> list[dict[str, str]]:
     if not members:
         raise ValueError(f"{path} 中没有填写任何成员信息。")
     if len(members) > 3:
-        raise ValueError("封面模板当前只预留 3 行成员信息，请保留 3 位以内成员。")
+        raise ValueError("封面模板当前仅预留 3 行成员信息，成员记录不得超过 3 位。")
     return members
 
 

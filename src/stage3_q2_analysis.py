@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from itertools import combinations
 from pathlib import Path
@@ -99,7 +100,7 @@ def correlation_pair_table(
     return pd.DataFrame(rows)
 
 
-def save_heatmap(corr: pd.DataFrame, path: Path, title: str) -> None:
+def save_heatmap(corr: pd.DataFrame, path: Path) -> None:
     fig, ax = plt.subplots(figsize=(13, 10))
     data = corr.values.astype(float)
     im = ax.imshow(data, cmap="RdBu_r", vmin=-1, vmax=1)
@@ -559,7 +560,6 @@ def main() -> None:
     save_heatmap(
         corr_overall,
         FIGURES / "q2_overall_product_correlation_heatmap.png",
-        "图7 全部门店汇总后的商品销量相关性热力图",
     )
     store_totals = store_product_daily.groupby(["store_id", "store_name"])[TARGET].sum()
     store_totals = store_totals.reset_index().sort_values(TARGET, ascending=False)
@@ -573,12 +573,13 @@ def main() -> None:
         .sort_index()
         .rename(columns=product_labels)
     )
+    # 探索性附图：用于检查重点门店相关结构，不进入论文正文。
     save_heatmap(
         focus_matrix.corr(method="pearson"),
         FIGURES / "q2_focus_store_product_correlation_heatmap.png",
-        f"图8 重点门店 {focus_store_name} 商品销量相关性热力图",
     )
 
+    # 探索性附图：用于比较类别聚合口径，不进入论文正文。
     fig, ax = plt.subplots(figsize=(12, 6))
     bar_df = category_stats.sort_values("total_sales", ascending=True)
     ax.barh(bar_df["category"], bar_df["total_sales"], color="#3A78B7")
@@ -617,6 +618,7 @@ def main() -> None:
     fig.savefig(FIGURES / "q2_category_method_wape_comparison.png", bbox_inches="tight")
     plt.close(fig)
 
+    # 探索性附图：用于比较门店-类别聚合口径，不进入论文正文。
     fig, ax = plt.subplots(figsize=(12, 6))
     plot_df = store_category_method_metrics.copy()
     plot_df["label"] = plot_df["method_label"] + "\n" + plot_df["model_label"]
@@ -636,6 +638,7 @@ def main() -> None:
     )
     plt.close(fig)
 
+    # 探索性附图：用于检查门店-类别销量结构，不进入论文正文。
     pivot_sc = store_category_stats.pivot_table(
         index="store_name", columns="category", values="total_sales", aggfunc="sum", fill_value=0
     )
@@ -696,9 +699,9 @@ def main() -> None:
 
 本阶段的分析分为四步：第一，构造“日期 $\\times$ 商品”的日销量矩阵；第二，计算商品之间的 Pearson 相关系数，识别同步变化或弱相关商品；第三，利用附件中的 `category` 字段按类别聚合销量；第四，比较“单品预测后加总”和“类别聚合后直接预测”两种方法的验证误差，并给出未来 7 天类别预测。
 
-## 2. 商品销量之间的联系如何量化
+## 2. 商品关联度量
 
-本阶段用相关系数衡量两个商品日销量是否同步变化。设 $x_t$ 和 $z_t$ 分别表示两个商品在第 $t$ 天的销量，则 Pearson 相关系数为：
+本阶段采用 Pearson 相关系数衡量两个商品日销量的线性同步程度。设 $x_t$ 和 $z_t$ 分别表示两个商品在第 $t$ 天的销量，则 Pearson 相关系数为：
 
 $$
 r=\\frac{{\\sum_{{t=1}}^n (x_t-\\bar x)(z_t-\\bar z)}}{{\\sqrt{{\\sum_{{t=1}}^n (x_t-\\bar x)^2}}\\sqrt{{\\sum_{{t=1}}^n (z_t-\\bar z)^2}}}}
@@ -706,11 +709,11 @@ $$
 
 当 $r>0$ 时，两个商品销量倾向于同升同降；当 $r<0$ 时，一个商品销量较高时另一个商品销量可能偏低；当 $r$ 接近 0 时，线性同步关系较弱。需要强调：相关性不等于因果性，相关系数只能说明历史销量同步关系，不能证明一种商品导致另一种商品销量变化。
 
-## 3. 为什么商品聚合可能让预测更稳定
+## 3. 类别聚合的稳定性机理
 
 单个商品日销量经常出现零销量、偶然大单或短期波动。按类别聚合后，不同商品的随机波动会相互抵消，类别总销量通常更平滑，因此预测误差可能下降。但聚合也会损失单品差异，例如同属碳酸饮料的不同规格饮料可能有不同价格、陈列和促销响应。若库存需要精确到商品，仍需要保留单品层级预测。
 
-## 4. 与问题一的区别
+## 4. 与问题一的差异
 
 问题一重点是分别预测门店总销量、商品总销量和门店-商品销量；问题二重点不是单独预测每个商品，而是研究同一门店内商品之间是否存在同步变化，并判断类别聚合是否能改善未来 7 天总销量预测。因此，问题二新增了商品相关性矩阵、类别销量趋势和聚合预测误差比较。
 
@@ -744,10 +747,10 @@ $$
 
 第一类是数据可以直接支持的结论：
 
-1. 全部门店汇总层面共计算 66 对商品相关系数，其中 2 对商品满足 $r\\ge 0.50$，可写为“存在较强正相关”。
-2. `三养辣火鸡味拌面` 与 `乡吧哥蜜汁鸡翅` 的相关系数为 0.521，`三养辣火鸡味拌面` 与 `李子柒螺蛳粉335g` 的相关系数为 0.506，可写为“历史日销量同步波动较明显”。
-3. 有 25 对商品满足 $|r|\\le 0.10$，可写为“线性同步关系较弱”。
-4. 筛选出的负相关候选相关系数绝对值均很小，例如 -0.025 和 -0.018，可写为“未发现强替代关系”。
+1. 全部门店汇总层面共计算 66 对商品相关系数，其中 2 对商品满足 $r\\ge 0.50$，对应表述为“存在较强正相关”。
+2. `三养辣火鸡味拌面` 与 `乡吧哥蜜汁鸡翅` 的相关系数为 0.521，`三养辣火鸡味拌面` 与 `李子柒螺蛳粉335g` 的相关系数为 0.506，对应表述为“历史日销量同步波动较明显”。
+3. 有 25 对商品满足 $|r|\\le 0.10$，对应表述为“线性同步关系较弱”。
+4. 筛选出的负相关候选相关系数绝对值均很小，例如 -0.025 和 -0.018，对应表述为“未发现强替代关系”。
 
 第二类是合理推断但不确定的结论：
 
