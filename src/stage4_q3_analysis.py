@@ -30,6 +30,42 @@ PAPER = ROOT / "paper"
 TARGET = "positive_sales"
 VALIDATION_START = pd.Timestamp("2022-03-01")
 
+WEATHER_GROUP_DISPLAY = {
+    "no_precip": "无降水",
+    "light_rain": "小雨/阵雨",
+    "moderate_heavy_rain": "中大雨及以上",
+    "sleet_rare": "雨夹雪",
+    "other": "其他",
+}
+
+
+def weather_to_group(weather: str) -> str:
+    no_precip = {"晴", "多云", "阴"}
+    light = {"小雨", "小到中雨", "阵雨", "雷阵雨"}
+    heavy = {"中雨", "中到大雨", "大雨", "大到暴雨", "暴雨"}
+    weather = str(weather)
+    if weather in no_precip:
+        return "no_precip"
+    if weather in light:
+        return "light_rain"
+    if weather in heavy:
+        return "moderate_heavy_rain"
+    if weather == "雨夹雪":
+        return "sleet_rare"
+    return "other"
+
+
+def significance_stars(p_value: float) -> str:
+    if pd.isna(p_value):
+        return ""
+    if p_value < 0.01:
+        return "***"
+    if p_value < 0.05:
+        return "**"
+    if p_value < 0.1:
+        return "*"
+    return ""
+
 
 def short_label(text: object, max_len: int = 12) -> str:
     text = str(text)
@@ -93,43 +129,68 @@ def extract_weather_level(term: str) -> str:
     return match.group(1) if match else term
 
 
-def regression_external_coefficients(model, iqr_map: dict[str, float]) -> pd.DataFrame:
+def regression_external_coefficients(
+    model,
+    iqr_map: dict[str, float],
+    weather_day_counts: dict[str, int] | None = None,
+) -> pd.DataFrame:
+    weather_day_counts = weather_day_counts or {}
     rows = []
     for term, coef in model.params.items():
         if term == "Intercept":
             continue
-        if term.startswith("C(weather"):
-            factor = "weather"
+        if term.startswith("C(weather_group"):
+            factor = "weather_group"
             variable = extract_weather_level(term)
+            variable_display = WEATHER_GROUP_DISPLAY.get(variable, variable)
+            display_name = f"天气组：{variable_display}"
             direction = "正关联" if coef > 0 else "负关联" if coef < 0 else "近零"
             comparable_effect = abs(float(coef))
-            interpretation = f"相对基准天气的销量差异"
-        elif term in ["max_temperature", "min_temperature", "wind_power"]:
+            interpretation = "相对无降水基准组的 log(1+销量) 差异"
+        elif term in ["avg_temperature", "temperature_range", "wind_power", "lag_7", "rolling_28_prev"]:
             factor = term
             variable = term
+            display_name = {
+                "avg_temperature": "平均温度",
+                "temperature_range": "昼夜温差",
+                "wind_power": "风力",
+                "lag_7": "7 日滞后销量",
+                "rolling_28_prev": "前 28 日滚动均值",
+            }[term]
             direction = "正关联" if coef > 0 else "负关联" if coef < 0 else "近零"
             comparable_effect = abs(float(coef) * iqr_map.get(term, 1.0))
-            interpretation = "连续变量按四分位距变化折算"
+            interpretation = "连续变量按四分位距变化折算的 log(1+销量) 差异"
         elif term in ["is_holiday", "is_activity_day", "is_weekend"]:
             factor = term
             variable = term
+            display_name = {
+                "is_holiday": "节假日",
+                "is_activity_day": "活动日",
+                "is_weekend": "周末",
+            }[term]
             direction = "正关联" if coef > 0 else "负关联" if coef < 0 else "近零"
             comparable_effect = abs(float(coef))
-            interpretation = "0/1 变量从 0 到 1 的关联差异"
+            interpretation = "0/1 变量从 0 到 1 的 log(1+销量) 差异"
         else:
             continue
+        p_value = float(model.pvalues.get(term, np.nan))
         rows.append(
             {
+                "variable_name": display_name,
                 "term": term,
                 "factor": factor,
                 "variable": variable,
                 "coef": float(coef),
                 "std_err": float(model.bse.get(term, np.nan)),
                 "t_value": float(model.tvalues.get(term, np.nan)),
-                "p_value": float(model.pvalues.get(term, np.nan)),
+                "p_value": p_value,
+                "significance": significance_stars(p_value),
                 "direction": direction,
                 "comparable_abs_effect": comparable_effect,
                 "interpretation": interpretation,
+                "level_n_days": weather_day_counts.get(variable, np.nan)
+                if factor == "weather_group"
+                else np.nan,
             }
         )
     return pd.DataFrame(rows).sort_values("comparable_abs_effect", ascending=False)
@@ -381,12 +442,22 @@ def main() -> None:
     analysis_df["temperature_range"] = (
         analysis_df["max_temperature"] - analysis_df["min_temperature"]
     )
+    analysis_df["log_positive_sales"] = np.log1p(analysis_df[TARGET])
+    analysis_df["weather_group"] = analysis_df["weather"].astype(str).map(weather_to_group)
     analysis_df["store_id_str"] = analysis_df["store_id"].astype(str)
     analysis_df["product_id_str"] = analysis_df["product_id"].astype(str)
     analysis_df["weekday_str"] = analysis_df["weekday"].astype(int).astype(str)
     analysis_df["month_str"] = analysis_df["month"].astype(int).astype(str)
     analysis_df["weather"] = analysis_df["weather"].astype(str)
     analysis_df["category"] = analysis_df["category"].astype(str)
+    analysis_df["combo_id"] = (
+        analysis_df["store_id_str"] + "|" + analysis_df["product_id_str"]
+    )
+    analysis_df = analysis_df.sort_values(["combo_id", "date"]).copy()
+    analysis_df["lag_7"] = analysis_df.groupby("combo_id")[TARGET].shift(7)
+    analysis_df["rolling_28_prev"] = analysis_df.groupby("combo_id")[TARGET].transform(
+        lambda s: s.shift(1).rolling(28, min_periods=7).mean()
+    )
 
     variable_rows = [
         ("天气类型", "weather", "存在", "附件二 `天气` 字段，分类变量"),
@@ -412,6 +483,7 @@ def main() -> None:
             [
                 "date",
                 "weather",
+                "weather_group",
                 "max_temperature",
                 "min_temperature",
                 "avg_temperature",
@@ -446,6 +518,21 @@ def main() -> None:
         .sort_values(["mean_daily_sales", "n_days"], ascending=[False, False])
     )
     save_csv(weather_stats, "q3_weather_descriptive_stats.csv", True)
+    weather_group_stats = (
+        daily_external.groupby("weather_group")["daily_total_sales"]
+        .agg(
+            n_days="count",
+            mean_daily_sales="mean",
+            median_daily_sales="median",
+            std_daily_sales="std",
+            total_sales="sum",
+        )
+        .reset_index()
+    )
+    weather_group_stats["weather_group_label"] = weather_group_stats["weather_group"].map(
+        WEATHER_GROUP_DISPLAY
+    )
+    save_csv(weather_group_stats, "q3_weather_group_descriptive_stats.csv", True)
 
     binary_rows = []
     binary_specs = [
@@ -518,57 +605,58 @@ def main() -> None:
     continuous_corr = pd.DataFrame(corr_rows)
     save_csv(continuous_corr, "q3_continuous_factor_correlations.csv", True)
 
-    weather_reference = "晴" if "晴" in set(analysis_df["weather"]) else analysis_df["weather"].mode().iloc[0]
+    model_df = analysis_df.dropna(subset=["lag_7", "rolling_28_prev"]).copy()
+    weather_reference = "no_precip"
     formula_controlled = (
-        f"{TARGET} ~ C(weather, Treatment(reference='{weather_reference}')) "
-        "+ max_temperature + min_temperature + wind_power "
-        "+ is_holiday + is_activity_day "
+        "log_positive_sales ~ C(weather_group, Treatment(reference='no_precip')) "
+        "+ avg_temperature + temperature_range + wind_power "
+        "+ is_holiday + is_weekend + is_activity_day "
+        "+ lag_7 + rolling_28_prev "
         "+ C(weekday_str) + C(month_str) + C(store_id_str) + C(product_id_str)"
     )
-    controlled_model = smf.ols(formula_controlled, data=analysis_df).fit(
-        cov_type="cluster", cov_kwds={"groups": analysis_df["date"]}
+    controlled_model = smf.ols(formula_controlled, data=model_df).fit(
+        cov_type="cluster", cov_kwds={"groups": model_df["combo_id"]}
     )
 
     formula_weekend = (
-        f"{TARGET} ~ C(weather, Treatment(reference='{weather_reference}')) "
-        "+ max_temperature + min_temperature + wind_power "
+        "log_positive_sales ~ C(weather_group, Treatment(reference='no_precip')) "
+        "+ avg_temperature + temperature_range + wind_power "
         "+ is_holiday + is_weekend + is_activity_day "
+        "+ lag_7 + rolling_28_prev "
         "+ C(month_str) + C(store_id_str) + C(product_id_str)"
     )
-    weekend_model = smf.ols(formula_weekend, data=analysis_df).fit(
-        cov_type="cluster", cov_kwds={"groups": analysis_df["date"]}
+    weekend_model = smf.ols(formula_weekend, data=model_df).fit(
+        cov_type="cluster", cov_kwds={"groups": model_df["combo_id"]}
     )
 
     formula_category = (
-        f"{TARGET} ~ C(weather, Treatment(reference='{weather_reference}')) "
-        "+ max_temperature + min_temperature + wind_power "
-        "+ is_holiday + is_activity_day "
+        "log_positive_sales ~ C(weather_group, Treatment(reference='no_precip')) "
+        "+ avg_temperature + temperature_range + wind_power "
+        "+ is_holiday + is_weekend + is_activity_day "
+        "+ lag_7 + rolling_28_prev "
         "+ C(weekday_str) + C(month_str) + C(store_id_str) + C(category)"
     )
-    category_model = smf.ols(formula_category, data=analysis_df).fit(
-        cov_type="cluster", cov_kwds={"groups": analysis_df["date"]}
+    category_model = smf.ols(formula_category, data=model_df).fit(
+        cov_type="cluster", cov_kwds={"groups": model_df["combo_id"]}
     )
 
     iqr_map = {
-        col: float(analysis_df[col].quantile(0.75) - analysis_df[col].quantile(0.25))
-        for col in ["max_temperature", "min_temperature", "wind_power"]
+        col: float(model_df[col].quantile(0.75) - model_df[col].quantile(0.25))
+        for col in [
+            "avg_temperature",
+            "temperature_range",
+            "wind_power",
+            "lag_7",
+            "rolling_28_prev",
+        ]
     }
-    reg_external = regression_external_coefficients(controlled_model, iqr_map)
-    weekend_external = regression_external_coefficients(weekend_model, iqr_map)
-    weekend_row = weekend_external[weekend_external["factor"] == "is_weekend"].copy()
-    if not weekend_row.empty:
-        weekend_row["term"] = "is_weekend_from_weekend_model"
-        reg_external = pd.concat([reg_external, weekend_row], ignore_index=True)
-    weather_day_counts = weather_stats.set_index("weather")["n_days"].to_dict()
-    reg_external["level_n_days"] = np.nan
-    weather_mask = reg_external["factor"] == "weather"
-    reg_external.loc[weather_mask, "level_n_days"] = reg_external.loc[
-        weather_mask, "variable"
-    ].map(weather_day_counts)
+    weather_day_counts = weather_group_stats.set_index("weather_group")["n_days"].to_dict()
+    reg_external = regression_external_coefficients(controlled_model, iqr_map, weather_day_counts)
+    weather_mask = reg_external["factor"] == "weather_group"
     reg_external["sample_size_note"] = ""
     reg_external.loc[
         weather_mask & (reg_external["level_n_days"] < 10), "sample_size_note"
-    ] = "该天气样本天数少，系数需谨慎解释"
+    ] = "该天气组合样本天数少，系数需谨慎解释"
     reg_external = reg_external.sort_values("comparable_abs_effect", ascending=False)
     save_csv(reg_external, "q3_regression_coefficients_external.csv", True)
 
@@ -576,21 +664,21 @@ def main() -> None:
         [
             {
                 "model": "controlled_product_fixed_effect",
-                "description": "天气、温度、风力、节假日、活动日 + 星期、月份、门店、商品控制变量",
+                "description": "log(1+销量) ~ 合并天气、平均温度、昼夜温差、风力、节假日、周末、活动日、历史控制 + 星期、月份、门店、商品固定效应",
                 "nobs": int(controlled_model.nobs),
                 "r_squared": float(controlled_model.rsquared),
                 "adj_r_squared": float(controlled_model.rsquared_adj),
                 "weather_reference": weather_reference,
-                "note": "主要解释模型；标准误按日期聚类",
+                "note": "主要解释模型；标准误按门店-商品组合聚类",
             },
             {
                 "model": "weekend_effect_model",
-                "description": "估计周末变量；不再加入星期固定效应，避免完全共线",
+                "description": "估计周末变量；不加入星期固定效应的补充模型",
                 "nobs": int(weekend_model.nobs),
                 "r_squared": float(weekend_model.rsquared),
                 "adj_r_squared": float(weekend_model.rsquared_adj),
                 "weather_reference": weather_reference,
-                "note": "用于周末/工作日关联估计",
+                "note": "用于检查周末变量与星期固定效应重叠后的稳定性",
             },
             {
                 "model": "category_control_model",
@@ -608,9 +696,9 @@ def main() -> None:
     train = analysis_df[analysis_df["date"] < VALIDATION_START].copy()
     valid = analysis_df[analysis_df["date"] >= VALIDATION_START].copy()
     rf_features = [
-        "weather",
-        "max_temperature",
-        "min_temperature",
+        "weather_group",
+        "avg_temperature",
+        "temperature_range",
         "wind_power",
         "is_holiday",
         "is_weekend",
@@ -622,8 +710,8 @@ def main() -> None:
         "category",
     ]
     numeric_features = [
-        "max_temperature",
-        "min_temperature",
+        "avg_temperature",
+        "temperature_range",
         "wind_power",
         "is_holiday",
         "is_weekend",
@@ -631,7 +719,7 @@ def main() -> None:
         "weekday",
         "month",
     ]
-    categorical_features = ["weather", "store_id_str", "product_id_str", "category"]
+    categorical_features = ["weather_group", "store_id_str", "product_id_str", "category"]
     preprocessor = ColumnTransformer(
         transformers=[
             ("cat", OneHotEncoder(handle_unknown="ignore"), categorical_features),
@@ -692,9 +780,9 @@ def main() -> None:
             "store_id_str": "门店",
             "product_id_str": "商品",
             "category": "商品类别",
-            "weather": "天气",
-            "max_temperature": "最高温",
-            "min_temperature": "最低温",
+            "weather_group": "天气",
+            "avg_temperature": "平均温度",
+            "temperature_range": "昼夜温差",
             "wind_power": "风力",
             "is_holiday": "节假日",
             "is_weekend": "周末",
@@ -713,9 +801,9 @@ def main() -> None:
 
     factor_rows = []
     factor_specs = [
-        ("天气", "weather"),
-        ("最高温", "max_temperature"),
-        ("最低温", "min_temperature"),
+        ("天气", "weather_group"),
+        ("平均温度", "avg_temperature"),
+        ("昼夜温差", "temperature_range"),
         ("风力", "wind_power"),
         ("节假日", "is_holiday"),
         ("周末", "is_weekend"),
@@ -723,10 +811,10 @@ def main() -> None:
     ]
     for display, factor in factor_specs:
         main_limitation = "存在混杂因素，只能解释为统计关联；天气和日历变量为日期层面变量"
-        if factor == "weather":
-            sub = reg_external[reg_external["factor"] == "weather"]
+        if factor == "weather_group":
+            sub = reg_external[reg_external["factor"] == "weather_group"]
             effect = float(sub["comparable_abs_effect"].max()) if not sub.empty else 0.0
-            direction = "分天气类型不同"
+            direction = "分天气组合不同"
             p_value = float(sub["p_value"].min()) if not sub.empty else np.nan
             top_weather_level = (
                 str(sub.sort_values("comparable_abs_effect", ascending=False)["variable"].iloc[0])
@@ -735,8 +823,9 @@ def main() -> None:
             )
             top_weather_days = weather_day_counts.get(top_weather_level, np.nan)
             if pd.notna(top_weather_days) and top_weather_days < 10:
+                top_weather_label = WEATHER_GROUP_DISPLAY.get(top_weather_level, top_weather_level)
                 main_limitation = (
-                    f"天气类别样本不均衡；最大系数来自 {top_weather_level}，仅 {int(top_weather_days)} 天"
+                    f"天气组合样本不均衡；最大系数来自 {top_weather_label}，仅 {int(top_weather_days)} 天"
                 )
         else:
             sub = reg_external[reg_external["factor"] == factor]
@@ -758,7 +847,7 @@ def main() -> None:
             desc = descriptive_diff("周末")
         else:
             desc = None
-        if factor == "weather" and "样本不均衡" in main_limitation:
+        if factor == "weather_group" and "样本不均衡" in main_limitation:
             stable = "不稳定/部分天气样本少"
         elif pd.isna(p_value) or p_value >= 0.05:
             stable = "不稳定/统计不显著"
@@ -790,7 +879,6 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(13, 6))
     plot_weather = weather_stats.sort_values("mean_daily_sales", ascending=True)
     ax.barh(plot_weather["weather"], plot_weather["mean_daily_sales"], color="#3A78B7")
-    ax.set_title("图14 不同天气下平均日销量")
     ax.set_xlabel("平均日销量")
     for i, row in enumerate(plot_weather.itertuples()):
         ax.text(row.mean_daily_sales, i, f"{row.mean_daily_sales:.1f} ({row.n_days}天)", va="center", fontsize=8)
@@ -802,11 +890,9 @@ def main() -> None:
     for ax, factor in zip(axes, ["节假日", "周末", "活动日"]):
         sub = binary_stats[binary_stats["factor"] == factor].sort_values("value")
         ax.bar(sub["label"], sub["mean_daily_sales"], color=["#88CCEE", "#CC6677"])
-        ax.set_title(f"{factor}与平均日销量")
         ax.set_ylabel("平均日销量")
         for i, row in enumerate(sub.itertuples()):
             ax.text(i, row.mean_daily_sales, f"{row.mean_daily_sales:.1f}\n{row.n_days}天", ha="center", va="bottom", fontsize=8)
-    fig.suptitle("图15 节假日、周末、活动日描述性比较", y=1.02)
     fig.tight_layout()
     fig.savefig(FIGURES / "q3_binary_factor_mean_sales.png", bbox_inches="tight")
     plt.close(fig)
@@ -821,10 +907,8 @@ def main() -> None:
         coef = np.polyfit(daily_external[col], daily_external["daily_total_sales"], 1)
         xs = np.linspace(daily_external[col].min(), daily_external[col].max(), 100)
         ax.plot(xs, coef[0] * xs + coef[1], color="#CC6677", linewidth=2)
-        ax.set_title(f"{title}与日销量")
         ax.set_xlabel(title)
         ax.set_ylabel("日总销量")
-    fig.suptitle("图16 连续外部变量与日总销量关系", y=1.02)
     fig.tight_layout()
     fig.savefig(FIGURES / "q3_continuous_factor_scatter.png", bbox_inches="tight")
     plt.close(fig)
@@ -832,7 +916,6 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(12, 6))
     plot_reg = factor_summary.sort_values("regression_comparable_abs_effect", ascending=True)
     ax.barh(plot_reg["factor"], plot_reg["regression_comparable_abs_effect"], color="#66AA55")
-    ax.set_title("图17 控制变量回归的外部因素可比关联强度")
     ax.set_xlabel("可比绝对效应")
     for i, row in enumerate(plot_reg.itertuples()):
         ax.text(row.regression_comparable_abs_effect, i, f"{row.regression_comparable_abs_effect:.3f}", va="center", fontsize=8)
@@ -843,7 +926,6 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(12, 6))
     plot_rf = rf_importance.head(12).sort_values("importance_mean_mae_increase", ascending=True)
     ax.barh(plot_rf["feature_group"], plot_rf["importance_mean_mae_increase"], color="#AA4499")
-    ax.set_title("图18 随机森林置换重要性")
     ax.set_xlabel("打乱该特征后的 MAE 增加")
     for i, row in enumerate(plot_rf.itertuples()):
         ax.text(row.importance_mean_mae_increase, i, f"{row.importance_mean_mae_increase:.3f}", va="center", fontsize=8)
@@ -858,7 +940,6 @@ def main() -> None:
         colors = ["#CC6677" if v < 0 else "#4477AA" for v in plot_wc["coef"]]
         ax.barh(plot_wc["variable"], plot_wc["coef"], color=colors)
         ax.axvline(0, color="black", linewidth=1)
-        ax.set_title(f"图19 天气类别回归系数（相对 {weather_reference}）")
         ax.set_xlabel("控制变量后的系数")
         fig.tight_layout()
         fig.savefig(FIGURES / "q3_weather_regression_coefficients.png", bbox_inches="tight")
