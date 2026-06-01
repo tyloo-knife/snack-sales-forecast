@@ -4,7 +4,7 @@
   "n_validation_predictions": 11400,
   "best_comprehensive_model": "ridge",
   "best_comprehensive_label": "综合Ridge回归",
-  "best_comprehensive_wape": 0.7309078032796675,
+  "best_comprehensive_wape": 0.7309078031935045,
   "recursive_validation_windows": [
     {
       "window_start": "2022-03-01",
@@ -30,14 +30,14 @@
       "reason": "不足完整 7 日销售或外部变量覆盖，不能作为严格 7 日递推窗口"
     }
   ],
-  "best_comprehensive_recursive_7day_wape": 0.7668386053256758,
+  "best_comprehensive_recursive_7day_wape": 0.7668386054032288,
   "best_recursive_comprehensive_model": "ridge",
-  "best_recursive_comprehensive_wape": 0.7668386053256758,
-  "best_comprehensive_recursive_wape_change_pct_points": 3.6713538351954043,
+  "best_recursive_comprehensive_wape": 0.7668386054032288,
+  "best_comprehensive_recursive_wape_change_pct_points": 3.6713538525379477,
   "q1_exp_smoothing_wape": 0.751012867316391,
-  "relative_wape_improvement_vs_q1_pct": 2.677059862977493,
+  "relative_wape_improvement_vs_q1_pct": 2.677059874450409,
   "future_forecast_rows": 532,
   "future_store_product_combinations": 76,
-  "future_total_sales": 1311.2940321631913,
+  "future_total_sales": 1311.2940325185245,
   "future_external_weather_observed": false
 }

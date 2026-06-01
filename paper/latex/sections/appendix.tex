@@ -442,23 +442,23 @@ A地双桥路店 & 12001131 & 旺仔牛奶 & 乳类饮品 & 0 \\
 项目代码、数据处理说明和复现入口已整理在 GitHub 仓库：
 \url{https://github.com/tyloo-knife/snack-sales-forecast}。
 
-核心脚本按以下顺序运行：
+核心脚本复现顺序如下：
 \begin{enumerate}
-  \item 数据读取与清洗：\path{src/data_loader.py}、\path{src/preprocessing.py}；
-  \item 特征构造：\path{src/features.py}；
   \item 问题一图表重绘：\path{src/stage2_q1_figures.py}；
   \item 论文结构图与补充统计：\path{src/stage6_phase3_structure_analysis.py}、\path{src/stage7_phase4_text_evidence.py}；
   \item 问题二分析：\path{src/stage3_q2_analysis.py}；
   \item 问题三外部因素分析：\path{src/stage4_q3_analysis.py}；
   \item 问题四综合模型：\path{src/stage5_q4_analysis.py}；
   \item 严格 7 日递推验证：\path{src/stage5_q4_recursive_validation.py}；
-  \item 问题四误差诊断与天气敏感性：\path{src/stage5_q4_error_diagnosis.py}、\path{src/stage5_q4_weather_sensitivity.py}；
   \item 消融检验：\path{src/stage5_q4_ablation.py}；
   \item 低销量策略：\path{src/stage5_q4_low_volume_strategy.py}；
-  \item 显著性检验与最终混合预测：\path{src/stage5_q4_hybrid_final_forecast.py}。
+  \item 最终混合预测：\path{src/stage5_q4_hybrid_final_forecast.py}；
+  \item 问题四误差诊断：\path{src/stage5_q4_error_diagnosis.py}；
+  \item 天气敏感性检验：\path{src/stage5_q4_weather_sensitivity.py}；
+  \item 间歇需求审查：\path{src/intermittent_demand_review.py}。
 \end{enumerate}
 
-主要输出文件包括阶段报告、误差表、图表和最终预测表。其中，问题三系数表保存为 \path{tables/q3_regression_coefficients_external.csv}，问题四显著性检验保存为 \path{tables/q4_significance_tests.csv}，最终整数汇总保存为 \path{outputs/q4_hybrid_forecast_7day_total_by_store_product.csv} 等文件。纸质稿不展示完整 Python 源码；完整代码保存在项目 \path{src/} 目录中。若提交平台要求电子附件，可同时提交最终预测明细 \path{outputs/final_7day_forecast_hybrid_low_volume_integer.csv} 和连续预测表 \path{outputs/final_7day_forecast_hybrid_low_volume.csv}。
+主要输出文件包括阶段报告、误差表、图表和最终预测表。其中，问题三主模型系数表保存为 \path{tables/q3_regression_coefficients_external.csv}，周末补充模型系数保存为 \path{tables/q3_weekend_supplement_coefficient.csv}，问题四严格递推显著性检验保存为 \path{tables/q4_significance_tests.csv}，日滚动旁路口径显著性检验保存为 \path{tables/q4_significance_tests_daily.csv}，最终整数汇总保存为 \path{outputs/q4_hybrid_forecast_7day_total_by_store_product.csv} 等文件。纸质稿不展示完整 Python 源码；完整代码保存在项目 \path{src/} 目录中。\path{outputs/*.md} 为内部过程记录和复现说明，若提交平台要求电子附件，优先提交最终预测明细 \path{outputs/final_7day_forecast_hybrid_low_volume_integer.csv}、连续预测表 \path{outputs/final_7day_forecast_hybrid_low_volume.csv}、关键结果表图和 \path{src/} 代码；如需提交过程报告，应以当前改写后的正式版本为准。
 
 \section{辅助工具使用说明}
 

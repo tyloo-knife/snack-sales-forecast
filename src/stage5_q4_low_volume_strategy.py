@@ -155,7 +155,7 @@ def build_classification(panel: pd.DataFrame, window_starts: list[pd.Timestamp])
 def read_base_predictions() -> pd.DataFrame:
     if not BASE_PREDICTION_PATH.exists():
         raise FileNotFoundError(
-            "缺少 q4_ablation_predictions.csv，请先运行 src/stage5_q4_ablation.py。"
+            "缺少 q4_ablation_predictions.csv；该文件由 src/stage5_q4_ablation.py 生成。"
         )
     preds = pd.read_csv(BASE_PREDICTION_PATH)
     preds["date"] = pd.to_datetime(preds["date"])
@@ -640,7 +640,7 @@ def build_report(
 
 检验以同一严格 7 日递推验证集为基础。Wilcoxon 检验的配对单位为“验证窗口 × 门店--商品序列”的 7 日绝对误差；bootstrap 置信区间按 7 日窗口块重采样计算 WAPE 差。若 p 值不小于 0.05 或置信区间包含 0，本文不写“误差显著改进”。
 
-论文建议把低销量分析写入模型评价和局限性部分：低销量序列是细粒度误差的主要来源之一；简单的层级收缩可作为稳健性检查，但若未显著优于主模型，就不应为了“看起来高级”而替换最终预测模型。
+论文表述中将低销量分析写入模型评价和局限性部分：低销量序列是细粒度误差的主要来源之一；简单的层级收缩可作为稳健性检查，但若未显著优于主模型，就不应仅因模型形式更复杂而替换最终预测模型。
 """
 
 

@@ -29,8 +29,8 @@
     }
   ],
   "recursive_prediction_rows": 10640,
-  "ridge_daily_rolling_store_product_wape": 0.7301250669737218,
-  "ridge_recursive_store_product_wape": 0.7668386053256758,
+  "ridge_daily_rolling_store_product_wape": 0.7301250668778495,
+  "ridge_recursive_store_product_wape": 0.7668386054032288,
   "best_baseline_recursive_store_product_model": "baseline_rolling_mean_14",
   "best_baseline_recursive_store_product_wape": 0.7765703458378673,
   "ridge_vs_baseline_recursive": "仍优于"
