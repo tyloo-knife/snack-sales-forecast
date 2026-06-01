@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import sys
 from itertools import combinations
 from pathlib import Path
@@ -23,8 +22,6 @@ from src.models import (
 TABLES = ROOT / "tables"
 FIGURES = ROOT / "figures"
 OUTPUTS = ROOT / "outputs"
-NOTEBOOKS = ROOT / "notebooks"
-PAPER = ROOT / "paper"
 
 TARGET = "positive_sales"
 VALIDATION_START = pd.Timestamp("2022-03-01")
@@ -76,27 +73,6 @@ def save_csv(df: pd.DataFrame, name: str, to_outputs: bool = False) -> None:
     df.to_csv(TABLES / name, index=False, encoding="utf-8-sig")
     if to_outputs:
         df.to_csv(OUTPUTS / name, index=False, encoding="utf-8-sig")
-
-
-def upsert_section(path: Path, heading: str, content: str) -> None:
-    text = path.read_text(encoding="utf-8") if path.exists() else ""
-    content = content.strip() + "\n"
-    if heading in text:
-        start = text.index(heading)
-        next_idx = text.find("\n## ", start + len(heading))
-        if next_idx == -1:
-            new_text = text[:start].rstrip() + "\n\n" + content
-        else:
-            new_text = (
-                text[:start].rstrip()
-                + "\n\n"
-                + content
-                + "\n"
-                + text[next_idx + 1 :].lstrip()
-            )
-    else:
-        new_text = text.rstrip() + "\n\n" + content
-    path.write_text(new_text, encoding="utf-8")
 
 
 def correlation_pair_table(
@@ -153,195 +129,6 @@ def save_heatmap(corr: pd.DataFrame, path: Path, title: str) -> None:
     plt.close(fig)
 
 
-def build_notebook() -> None:
-    nb = {
-        "cells": [
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "# 05 商品关联与类别预测\n",
-                    "\n",
-                    "本 Notebook 对应阶段 3：问题二建模。每段代码前说明要解决的问题，每段代码后说明输出如何理解。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 1：读取阶段 1 处理后的数据\n",
-                    "\n",
-                    "这段代码解决“使用什么销量口径和字段”的问题。问题二继续使用 `positive_sales` 表示正向顾客需求销量，并用 `product_id` 合并同一商品编号下的名称差异。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "from pathlib import Path\n",
-                    "import pandas as pd\n",
-                    "ROOT = Path.cwd().parent if Path.cwd().name == 'notebooks' else Path.cwd()\n",
-                    "df = pd.read_csv(ROOT / 'data/processed/modeling_base_table.csv')\n",
-                    "df['date'] = pd.to_datetime(df['date'])\n",
-                    "target = 'positive_sales'\n",
-                    "df[['date','store_id','store_name','product_id','product_name','category',target]].head()\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：如果能看到日期、门店、商品、类别和 `positive_sales`，说明问题二所需字段齐全。若缺少 `category`，才需要根据商品名称或相关性重新分类；本题不需要。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 2：构造日期 × 商品销量矩阵\n",
-                    "\n",
-                    "这段代码解决“商品之间如何放到同一张表比较”的问题。矩阵的每一列是一种商品的日销量序列。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "product_daily = df.groupby(['date','product_id'], as_index=False)[target].sum()\n",
-                    "matrix = product_daily.pivot_table(index='date', columns='product_id', values=target, aggfunc='sum', fill_value=0)\n",
-                    "matrix.head()\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：每一行是一天，每一列是一种商品。某个单元格为 0 表示该商品当天没有正向销售。该矩阵用于后续计算相关系数。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 3：计算商品相关系数矩阵\n",
-                    "\n",
-                    "这段代码解决“商品销量之间的联系如何量化”的问题。这里使用 Pearson 相关系数衡量两个商品日销量是否同步波动。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": ["corr = matrix.corr(method='pearson')\n", "corr.round(3)\n"],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：相关系数接近 1 表示两个商品更同步，接近 0 表示线性关系弱，小于 0 表示反向波动线索。相关性不等于因果性，不能直接证明替代或带动关系。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 4：按类别聚合销量\n",
-                    "\n",
-                    "这段代码解决“如何整合同类零食”的问题。因为附件已有 `category` 字段，所以直接按类别求和。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "category_daily = df.groupby(['date','category'], as_index=False)[target].sum()\n",
-                    "category_stats = category_daily.groupby('category')[target].agg(['sum','mean','std']).sort_values('sum', ascending=False)\n",
-                    "category_stats\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：`sum` 表示类别历史累计销量，`mean` 表示类别平均日销量，`std` 表示日销量波动。类别聚合通常比单品更平滑，但会损失类别内部商品差异。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 5：读取阶段 3 已生成的预测比较结果\n",
-                    "\n",
-                    "这段代码解决“聚合预测是否优于单品加总”的问题。完整滚动验证已写入项目输出表，这里读取结果进行论文解释。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "method_metrics = pd.read_csv(ROOT / 'tables/q2_category_method_metrics.csv')\n",
-                    "method_metrics[['method_label','model_label','MAE','RMSE','WAPE_pct']]\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：WAPE 越小，说明总绝对误差占真实销量的比例越低。该表用于比较“单品预测后加总”和“类别聚合后直接预测”的优劣。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 6：读取未来 7 天类别预测结果\n",
-                    "\n",
-                    "这段代码解决“问题二最终要提交什么预测结果”的问题。预测日期为 2022-04-01 至 2022-04-07。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "forecast = pd.read_csv(ROOT / 'tables/q2_category_forecast_7day_total.csv')\n",
-                    "forecast\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：`predicted_7day_sales` 是该类别未来 7 天预测总销量。该表可直接用于问题二结果表，门店-类别版本见 `q2_store_category_forecast_7day_total.csv`。",
-                ],
-            },
-        ],
-        "metadata": {
-            "kernelspec": {
-                "display_name": "Python 3",
-                "language": "python",
-                "name": "python3",
-            },
-            "language_info": {"name": "python", "pygments_lexer": "ipython3"},
-        },
-        "nbformat": 4,
-        "nbformat_minor": 5,
-    }
-    (NOTEBOOKS / "05_product_relationship_and_category_forecast.ipynb").write_text(
-        json.dumps(nb, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
-
 def prepend_result_log(row: str) -> None:
     log_path = ROOT / "RESULT_LOG.md"
     log_text = log_path.read_text(encoding="utf-8")
@@ -359,7 +146,7 @@ def prepend_result_log(row: str) -> None:
 
 
 def main() -> None:
-    for path in [TABLES, FIGURES, OUTPUTS, NOTEBOOKS, PAPER]:
+    for path in [TABLES, FIGURES, OUTPUTS]:
         path.mkdir(parents=True, exist_ok=True)
 
     plt.rcParams["font.sans-serif"] = [
@@ -1119,12 +906,6 @@ $$
 本阶段结果为后续问题三、问题四提供两个基础：第一，商品之间确实存在不同程度的同步变化，可以在综合模型中考虑品类结构；第二，类别聚合预测与单品加总预测的误差不同，说明预测粒度会影响模型稳定性。
 """
 
-    upsert_section(PAPER / "model_building.md", "## 问题二模型建立", q2_model_building)
-    upsert_section(PAPER / "model_solution.md", "## 问题二模型求解", q2_model_solution)
-    upsert_section(PAPER / "result_analysis.md", "## 问题二结果分析", q2_result_analysis)
-
-    build_notebook()
-
     row = (
         f"| 2026-05-02 | 阶段 3 问题二商品关联与类别预测 | "
         f"processed: modeling_base_table.csv | 相关系数矩阵、移动平均、同星期均值、简单指数平滑 | "
@@ -1135,7 +916,7 @@ $$
         f"相关性不等于因果性；替代关系只能作为线索；类别聚合会损失单品差异 | "
         f"停止在阶段 3，等待确认后进入阶段 4 问题三建模 |"
     )
-    prepend_result_log(row)
+    # RESULT_LOG.md is maintained as a concise project-level summary.
 
     summary = {
         "rows_modeling_base": int(len(df)),

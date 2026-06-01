@@ -57,12 +57,12 @@
 
 ### 3.3 图表说明
 
-- 图1：`C:/Users/20215/Documents/CodexProjects/02-modeling/snack-sales-forecast/figures/q1_store_total_sales.png`。展示不同门店两年累计销量差异，用于说明门店预测不能简单共用一个常数。
-- 图2：`C:/Users/20215/Documents/CodexProjects/02-modeling/snack-sales-forecast/figures/q1_product_total_sales.png`。展示不同商品累计销量差异，用于说明商品需求规模差异明显。
-- 图3：`C:/Users/20215/Documents/CodexProjects/02-modeling/snack-sales-forecast/figures/q1_daily_total_trend.png`。展示总日销量和 7 日滚动均值，用于观察整体趋势和短期波动。
-- 图4：`C:/Users/20215/Documents/CodexProjects/02-modeling/snack-sales-forecast/figures/q1_weekday_effect.png`。比较不同星期的累计销量，用于检验同星期均值模型是否有合理基础。
-- 图5：`C:/Users/20215/Documents/CodexProjects/02-modeling/snack-sales-forecast/figures/q1_store_product_heatmap.png`。展示门店-商品组合销量差异，用于识别哪些组合是主要销量来源。
-- 图6：`C:/Users/20215/Documents/CodexProjects/02-modeling/snack-sales-forecast/figures/q1_model_wape_comparison.png`。比较不同预测粒度下各模型的 WAPE，用于选择未来 7 天预测模型。
+- 图1：`figures/q1_store_total_sales.png`。展示不同门店两年累计销量差异，用于说明门店预测不能简单共用一个常数。
+- 图2：`figures/q1_product_total_sales.png`。展示不同商品累计销量差异，用于说明商品需求规模差异明显。
+- 图3：`figures/q1_daily_total_trend.png`。展示总日销量和 7 日滚动均值，用于观察整体趋势和短期波动。
+- 图4：`figures/q1_weekday_effect.png`。比较不同星期的累计销量，用于检验同星期均值模型是否有合理基础。
+- 图5：`figures/q1_store_product_heatmap.png`。展示门店-商品组合销量差异，用于识别哪些组合是主要销量来源。
+- 图6：`figures/q1_model_wape_comparison.png`。比较不同预测粒度下各模型的 WAPE，用于选择未来 7 天预测模型。
 
 ## 4. 预测目标定义
 

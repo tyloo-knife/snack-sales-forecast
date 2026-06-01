@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 import sys
 from pathlib import Path
@@ -24,8 +23,6 @@ from src.evaluation import wape
 TABLES = ROOT / "tables"
 FIGURES = ROOT / "figures"
 OUTPUTS = ROOT / "outputs"
-NOTEBOOKS = ROOT / "notebooks"
-PAPER = ROOT / "paper"
 
 TARGET = "positive_sales"
 VALIDATION_START = pd.Timestamp("2022-03-01")
@@ -65,27 +62,6 @@ def save_csv(df: pd.DataFrame, name: str, to_outputs: bool = False) -> None:
     df.to_csv(TABLES / name, index=False, encoding="utf-8-sig")
     if to_outputs:
         df.to_csv(OUTPUTS / name, index=False, encoding="utf-8-sig")
-
-
-def upsert_section(path: Path, heading: str, content: str) -> None:
-    text = path.read_text(encoding="utf-8") if path.exists() else ""
-    content = content.strip() + "\n"
-    if heading in text:
-        start = text.index(heading)
-        next_idx = text.find("\n## ", start + len(heading))
-        if next_idx == -1:
-            new_text = text[:start].rstrip() + "\n\n" + content
-        else:
-            new_text = (
-                text[:start].rstrip()
-                + "\n\n"
-                + content
-                + "\n"
-                + text[next_idx + 1 :].lstrip()
-            )
-    else:
-        new_text = text.rstrip() + "\n\n" + content
-    path.write_text(new_text, encoding="utf-8")
 
 
 def extract_weather_level(term: str) -> str:
@@ -135,196 +111,6 @@ def regression_external_coefficients(model, iqr_map: dict[str, float]) -> pd.Dat
     return pd.DataFrame(rows).sort_values("comparable_abs_effect", ascending=False)
 
 
-def build_notebook() -> None:
-    nb = {
-        "cells": [
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "# 06 外部因素统计关联分析\n",
-                    "\n",
-                    "本 Notebook 对应阶段 4：问题三建模。目标是分析天气、节假日、活动日等因素与销量之间的统计关联，不直接证明因果关系。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 1：读取建模基础表\n",
-                    "\n",
-                    "这段代码解决“外部因素字段是否真实存在”的问题。特别注意：原始附件没有湿度字段，所以后续不分析湿度。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "from pathlib import Path\n",
-                    "import pandas as pd\n",
-                    "ROOT = Path.cwd().parent if Path.cwd().name == 'notebooks' else Path.cwd()\n",
-                    "df = pd.read_csv(ROOT / 'data/processed/modeling_base_table.csv')\n",
-                    "df['date'] = pd.to_datetime(df['date'])\n",
-                    "external_cols = ['weather','max_temperature','min_temperature','wind_power','is_holiday','is_weekend','is_activity_day','weekday','month','store_id','product_id','category']\n",
-                    "df[external_cols + ['positive_sales']].head()\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：如果上述字段存在，就可以进入问题三变量构造。`humidity` 不在字段中，不能补造湿度变量。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 2：构造日总销量表\n",
-                    "\n",
-                    "这段代码解决描述性分析的粒度问题。由于天气、节假日、活动日是日期层面的变量，先把所有门店商品汇总成日总销量，再比较不同外部因素下的均值。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "daily = pd.read_csv(ROOT / 'tables/q3_daily_external_factor_table.csv')\n",
-                    "daily.head()\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：每一行是一日总销量及该日外部因素。这个表用于天气、节假日、周末、活动日的均值比较。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 3：查看天气描述性统计\n",
-                    "\n",
-                    "这段代码解决“不同天气下销量是否有差异”的问题，只是描述性比较，不控制混杂因素。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "weather_stats = pd.read_csv(ROOT / 'tables/q3_weather_descriptive_stats.csv')\n",
-                    "weather_stats.head(10)\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：`mean_daily_sales` 是该天气下平均日销量。样本天数少的天气结论更不稳定，不能过度解释。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 4：读取控制变量回归结果\n",
-                    "\n",
-                    "这段代码解决“控制门店、商品、星期、月份后，外部因素是否仍有关联”的问题。回归系数表示统计关联，不表示因果影响。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "reg = pd.read_csv(ROOT / 'tables/q3_regression_coefficients_external.csv')\n",
-                    "reg[['factor','variable','coef','p_value','direction','comparable_abs_effect']].head(15)\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：`coef` 为控制变量后的回归系数。连续变量的大小需结合四分位距折算；天气系数是相对基准天气的差异。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 5：读取随机森林置换重要性\n",
-                    "\n",
-                    "这段代码解决“非线性模型下哪些特征对预测更重要”的问题。置换重要性表示打乱某个特征后模型误差上升多少，不能说明销量变化方向。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "rf_imp = pd.read_csv(ROOT / 'tables/q3_random_forest_permutation_importance.csv')\n",
-                    "rf_imp.head(12)\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：重要性越高，说明该特征对随机森林验证集预测贡献越大。门店、商品等控制变量可能排名较高，这反映基础需求差异。",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "## 代码 6：读取统计关联强度排序\n",
-                    "\n",
-                    "这段代码解决论文最终如何排序的问题。排序综合考虑回归可比效应和随机森林重要性，并明确稳定性与局限。",
-                ],
-            },
-            {
-                "cell_type": "code",
-                "execution_count": None,
-                "metadata": {},
-                "outputs": [],
-                "source": [
-                    "summary = pd.read_csv(ROOT / 'tables/q3_factor_summary.csv')\n",
-                    "summary\n",
-                ],
-            },
-            {
-                "cell_type": "markdown",
-                "metadata": {},
-                "source": [
-                    "输出理解：该表可直接作为问题三“统计关联强度排序”的依据。论文中应使用“关联”表述，不写“导致”。",
-                ],
-            },
-        ],
-        "metadata": {
-            "kernelspec": {
-                "display_name": "Python 3",
-                "language": "python",
-                "name": "python3",
-            },
-            "language_info": {"name": "python", "pygments_lexer": "ipython3"},
-        },
-        "nbformat": 4,
-        "nbformat_minor": 5,
-    }
-    (NOTEBOOKS / "06_external_factor_analysis.ipynb").write_text(
-        json.dumps(nb, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
-
 def prepend_result_log(row: str) -> None:
     path = ROOT / "RESULT_LOG.md"
     text = path.read_text(encoding="utf-8")
@@ -342,7 +128,7 @@ def prepend_result_log(row: str) -> None:
 
 
 def main() -> None:
-    for path in [TABLES, FIGURES, OUTPUTS, NOTEBOOKS, PAPER]:
+    for path in [TABLES, FIGURES, OUTPUTS]:
         path.mkdir(parents=True, exist_ok=True)
 
     plt.rcParams["font.sans-serif"] = [
@@ -1067,11 +853,6 @@ $$
 随机森林置换重要性用于补充判断非线性预测贡献。它能说明打乱某一特征后预测误差增加多少，但不能说明销量变化方向，也不能证明因果关系。因此，问题三最终结论以回归的统计关联方向为主，以随机森林重要性作为辅助排序依据。
 """
 
-    upsert_section(PAPER / "model_building.md", "## 问题三模型建立", q3_model_building)
-    upsert_section(PAPER / "model_solution.md", "## 问题三模型求解", q3_model_solution)
-    upsert_section(PAPER / "result_analysis.md", "## 问题三结果分析", q3_result_analysis)
-    build_notebook()
-
     best_factor = factor_summary.iloc[0]
     row = (
         f"| 2026-05-02 | 阶段 4 问题三外部因素统计关联分析 | processed: modeling_base_table.csv | "
@@ -1081,7 +862,7 @@ $$
         f"湿度字段不存在；结论只能表述为统计关联，不能写因果；周末与星期固定效应存在共线关系 | "
         f"停止在阶段 4，等待确认后进入阶段 5 问题四综合模型 |"
     )
-    prepend_result_log(row)
+    # RESULT_LOG.md is maintained as a concise project-level summary.
 
     summary = {
         "analysis_rows": int(len(analysis_df)),
