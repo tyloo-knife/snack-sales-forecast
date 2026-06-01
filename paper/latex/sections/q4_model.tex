@@ -1,18 +1,24 @@
 \section{问题四：综合预测模型与严格递推验证}
 
-问题四需要在门店--商品粒度上进行综合预测。设 $y_{s,p,t}$ 表示门店 $s$、商品 $p$ 在日期 $t$ 的正向销量，综合模型的特征包括历史销量滞后项、滚动均值、日历变量、门店、商品、类别和外部变量。
+问题四需要在门店--商品粒度上进行综合预测。聚合层面的门店、商品和类别预测可用于运营总量判断，但门店--商品细粒度存在大量间歇与零销量序列，WAPE 更容易被低销量分母放大。设 $y_{s,p,t}$ 表示门店 $s$、商品 $p$ 在日期 $t$ 的正向销量，综合模型的特征包括历史销量滞后项、滚动均值、日历变量、门店、商品、类别和外部变量。
 
 \subsection{综合模型构造}
 
-综合 Ridge 的特征包括滞后销量、滚动均值、星期、月份、是否周末、门店、商品、类别、天气、节假日和活动日。模型可写为
+综合 Ridge 的特征包括滞后销量、滚动均值、星期、月份、是否周末、门店、商品、类别、天气、节假日和活动日。设 $x_{s,p,t}$ 为上述变量经数值化和独热编码后的特征向量，Ridge 回归估计式为
 \begin{equation}
-\hat y_{s,p,t}=f(Lag_{s,p,t},Roll_{s,p,t},Cal_t,Store_s,Product_p,Category_p,External_t).
+\hat y_{s,p,t}=x_{s,p,t}^{\top}\hat\beta,
 \end{equation}
-其中，$Lag$ 包括 \texttt{lag\_1}、\texttt{lag\_7}、\texttt{lag\_14}，$Roll$ 包括 \texttt{rolling\_mean\_7} 和 \texttt{rolling\_mean\_14}。Ridge 回归通过 $L_2$ 正则化缓解多重共线性，适合在保留线性可解释性的同时融合多类特征 \cite{hoerl1970ridge}。随机森林和其他树模型只作为补充比较，不作为论文主模型。
+其中参数由如下正则化最小二乘问题确定：
+\begin{equation}
+\hat\beta=\arg\min_{\beta}\left\{\sum_{(s,p,t)\in \mathcal T}
+\left(y_{s,p,t}-x_{s,p,t}^{\top}\beta\right)^2
+\,+\,\lambda\sum_{j=1}^{d}\beta_j^2\right\}.
+\end{equation}
+其中，$\mathcal T$ 为训练样本集合，$\lambda$ 为正则化强度，$d$ 为特征维数。$Lag$ 包括 \texttt{lag\_1}、\texttt{lag\_7}、\texttt{lag\_14}，$Roll$ 包括 \texttt{rolling\_mean\_7} 和 \texttt{rolling\_mean\_14}，$Cal$ 包括星期、月份和周末标记，$External$ 包括天气、温度、风力、节假日和活动日。Ridge 回归通过 $L_2$ 正则化缓解多重共线性，适合在保留线性可解释性的同时融合多类特征 \cite{hoerl1970ridge}。
 
 \subsection{严格 7 日递推验证}
 
-信息泄露专项检查 \path{outputs/q4_information_leakage_review.md} 指出：原日滚动验证没有当天销量直接进入当天特征，但验证窗口后续日期的 \texttt{lag\_1} 和滚动均值会使用窗口内前几天真实销量。因此，问题四以 \path{outputs/q4_recursive_7day_model_comparison.md} 中的严格 7 日递推验证作为主口径。
+为使验证口径与“提前预测未来 7 天”的任务一致，本文区分日滚动一步验证和严格 7 日递推验证。日滚动验证没有当天销量直接进入当天特征，但验证窗口后续日期的 \texttt{lag\_1} 和滚动均值会使用窗口内前几天真实销量；严格 7 日递推验证则只使用窗口起点以前的真实历史销量。因此，问题四以严格 7 日递推验证作为主评价口径。
 
 严格递推验证窗口见表 \ref{tab:q4_windows}。每个窗口只使用窗口起点以前的真实历史销量训练模型；窗口内第 2 至第 7 天若需要滞后或滚动特征，则使用前面已经预测出的销量，而不使用窗口内真实销量。
 
@@ -51,7 +57,73 @@
 \end{tabular}
 \end{table}
 
-在严格 7 日递推验证口径下，综合 Ridge 模型相较部分基准模型仍具有竞争力，但未超过问题一简单指数平滑模型。其主要价值在于统一融合门店、商品、类别、历史销量和外部因素，为多因素解释和情景预测提供一致框架。本文不作全局最优或显著提升的夸大表述。
+在严格 7 日递推验证口径下，综合 Ridge 模型相较部分基准模型仍具有竞争力，但未超过问题一简单指数平滑模型。这个结果不说明综合模型无效，而说明在本题细粒度、间歇需求占比较高的数据结构下，复杂特征的边际误差收益有限。综合模型的定位应是统一融合门店、商品、类别、历史销量和外部因素，为多因素解释、情景预测和低销量序列识别提供一致框架，而不是保证严格递推口径下的绝对误差最小。
+
+综合随机森林仅作为非线性陪跑项列入表 \ref{tab:q4_metrics}，其 WAPE=83.60\%，未优于 Ridge 和简单基准，后文不再展开。
+
+\subsection{消融检验与低销量混合策略}
+
+为进一步说明综合模型中不同特征的贡献，本文在相同严格 7 日递推窗口下进行消融检验，结果见表 \ref{tab:q4_ablation}。消融结果表明，在严格 7 日递推主口径下，去除天气变量后 WAPE 从 76.68\% 上升至 77.73\%，去除活动日后上升至 77.22\%，不使用销量历史时上升至 84.49\%。这说明销量滞后和滚动统计仍是最核心的信息；天气和活动日具有一定预测补充价值，但由于数据来源为观察数据，相关结果应解释为条件统计关联。
+
+\begin{table}[H]
+\centering
+\caption{问题四严格递推消融检验}
+\label{tab:q4_ablation}
+\begin{tabular}{lrrr}
+\toprule
+模型 & MAE & RMSE & WAPE \\
+\midrule
+问题一门店--商品简单指数平滑 & 1.816 & 3.772 & 76.35\% \\
+完整综合 Ridge & 1.824 & 3.702 & 76.68\% \\
+去节假日活动 Ridge & 1.830 & 3.748 & 76.96\% \\
+去活动日 Ridge & 1.837 & 3.748 & 77.22\% \\
+去天气 Ridge & 1.849 & 3.698 & 77.73\% \\
+历史日历 Ridge & 1.859 & 3.739 & 78.19\% \\
+无销量历史 Ridge & 2.009 & 4.252 & 84.49\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+同时，低销量诊断显示大量门店--商品序列存在零销量和间歇需求。考虑到样本规模和论文可解释性，本文采用规则化混合策略处理稀疏需求：在预测窗口开始日前，若某门店--商品组合被判为低销量序列，则使用问题一简单指数平滑；其余常规序列使用完整综合 Ridge。低销量判定只使用窗口开始日前历史数据：若正销量天数占比不高于 0.15 或历史日均销量低于 0.20，则记为 \texttt{very\_sparse}；若零销量比例不低于 0.75 或历史日均销量低于 0.50，则记为 \texttt{low\_volume\_intermittent}；无正销量历史序列单独记为 \texttt{no\_positive\_history}。上述三类进入低销量兜底，其余序列仍由 Ridge 预测。该策略的严格递推验证结果见表 \ref{tab:q4_low_volume_strategy}。
+
+\begin{table}[H]
+\centering
+\caption{低销量鲁棒性策略比较}
+\label{tab:q4_low_volume_strategy}
+\begin{tabular}{lrrr}
+\toprule
+模型 & MAE & RMSE & WAPE \\
+\midrule
+低销量指数平滑--常规 Ridge 混合 & 1.804 & 3.718 & 75.85\% \\
+问题一简单指数平滑 & 1.816 & 3.772 & 76.35\% \\
+低销量收缩--常规 Ridge 混合 & 1.823 & 3.709 & 76.66\% \\
+完整综合 Ridge & 1.824 & 3.702 & 76.68\% \\
+低销量收缩指数平滑 & 1.835 & 3.764 & 77.15\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+该混合策略相对问题一简单指数平滑降低 0.49 个百分点，相对完整 Ridge 降低 0.83 个百分点。为回答题目中“误差方面是否有显著改进”，本文进一步在同一严格 7 日递推验证集上进行配对检验，结果见表 \ref{tab:q4_significance}。
+
+\begin{table}[H]
+\centering
+\caption{严格递推误差显著性检验}
+\label{tab:q4_significance}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lrrrrrl}
+\toprule
+比较对象 & 基准 WAPE & 候选 WAPE & WAPE 差 & Wilcoxon $p$ 值 & bootstrap 95\% CI & 结论 \\
+\midrule
+综合 Ridge vs 问题一简单指数平滑 & 76.35 & 76.68 & -0.34 & 0.461 & [-1.56, 1.51] & 未达统计显著改进 \\
+低销量混合策略 vs 问题一简单指数平滑 & 76.35 & 75.85 & 0.49 & 0.0503 & [-0.72, 1.34] & 未达统计显著改进 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+表中 WAPE 差定义为“问题一简单指数平滑 WAPE 减候选模型 WAPE”，正值表示候选模型误差更低。Wilcoxon 检验的配对单位为“验证窗口 $\times$ 门店--商品序列”的 7 日绝对误差，bootstrap 置信区间按 7 日窗口块重采样计算。综合 Ridge 的 WAPE 略高于问题一简单指数平滑；低销量混合策略虽然数值上降低 0.49 个百分点，但单侧 Wilcoxon 检验 $p=0.0503$，且 WAPE 差的 95\% 置信区间包含 0。因此，在现有 4 个验证窗口下，本文不判定综合模型或混合策略相对简单基准实现了统计显著的误差改进。
+
+附加稳健性比较还考察了低销量阈值调整、近 28 日均值、商品均值、类别均值和层级收缩等兜底方法，并检查门店、商品和类别层级比例校准。全样本严格递推下，“低销量用近 28 日均值”的探索性方案 WAPE 可降至 74.95\%，但留一窗口选模后的平均改善仅 0.19 个百分点，稳定性证据不足。因此，后续预测仍采用低销量指数平滑--常规 Ridge 混合策略。
 
 \subsection{未来 7 天预测与整数化}
 
@@ -59,45 +131,45 @@
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{q4_store_forecast_7day_total.png}
-\caption{未来 7 天门店预测总量，用于展示综合模型在门店层面的预测结果}
+\includegraphics[width=0.85\textwidth]{q4_hybrid_forecast_7day_total_by_store.png}
+\caption{低销量混合策略下未来 7 天门店预测总量}
 \label{fig:q4_store_forecast}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{q4_category_forecast_7day_total.png}
-\caption{未来 7 天类别预测总量，用于展示综合模型在类别层面的预测结果}
+\includegraphics[width=0.85\textwidth]{q4_hybrid_forecast_7day_total_by_category.png}
+\caption{低销量混合策略下未来 7 天类别预测总量}
 \label{fig:q4_category_forecast}
 \end{figure}
 
-未来 7 天综合 Ridge 条件预测中，各门店预测总销量最高的是 B地江山店店 321.801，其次为 C地五乡镇店 279.972 和 A地天九街店 233.438；各类别预测最高的是包装散称 443.881，其次为功能饮料 374.886 和碳酸饮料 216.494。完整门店--商品--日期小数预测表见 \path{outputs/final_7day_forecast.csv}。
+未来 7 天低销量混合策略条件预测中，按最细粒度整数表汇总后，各门店预测总销量最高的是 B地江山店店 323，其次为 C地五乡镇店 301 和 A地天九街店 233；各类别预测最高的是包装散称 436，其次为功能饮料 365 和碳酸饮料 240。图 \ref{fig:q4_store_forecast} 和图 \ref{fig:q4_category_forecast} 均由同一混合策略整数预测结果生成，与附录 D 中的预测汇总表一致。
 
-由于实际销量以件数计，提交展示时对模型预测值进行非负约束和四舍五入整数化处理：预测值小于 0 的先置为 0，其余按四舍五入转为整数；原始小数预测结果仍作为模型连续输出保留。整数化预测表为 \path{outputs/final_7day_forecast_integer.csv}。小数预测表 7 天预测总量为 1311.294，整数化后 7 天预测总量为 1309。
+由于实际销量以件数计，提交展示时对模型预测值进行非负约束和四舍五入整数化处理：预测值小于 0 的先置为 0，极小预测值低于 $10^{-6}$ 时置为 0，其余按四舍五入转为整数；原始小数预测结果仍作为模型连续输出保留。混合策略小数预测表 7 天预测总量为 1329.894；只在门店--商品--日期最细粒度取整后，整数化 7 天预测总量为 1328。所有门店、商品、类别和逐日汇总均由该整数明细表求和得到，因此各级总量按构造一致。逐格取整后的合计可能略低于连续预测合计，原因是部分小于 0.5 的正小数会被舍入为 0。原完整 Ridge 小数预测总量为 1311.294。活动日变量与天气变量一样属于历史同期情景假设，不代表已知的真实未来促销安排。
 
 \subsection{误差诊断与情景敏感性}
 
-天气敏感性检验 \path{outputs/q4_weather_sensitivity_report.md} 显示，完整外部变量 Ridge 的严格递推 WAPE 为 76.68\%，去除天气变量 Ridge 为 77.73\%，历史同期天气情景 Ridge 为 76.57\%。因此，天气变量可作为补充情景特征，但不能写成稳定因果因素。
+天气敏感性检验显示，完整外部变量 Ridge 的严格递推 WAPE 为 76.68\%，去除天气变量 Ridge 为 77.73\%，历史同期天气情景 Ridge 为 76.57\%。因此，天气变量在验证中表现出一定补充预测价值，但由于数据来源为观察数据，其结果应解释为条件统计关联。
 
-误差诊断 \path{outputs/q4_error_diagnosis_report.md} 显示，综合 Ridge 在门店 A地双桥路店、低销量商品和样本不足的活动日场景误差较大；间歇性需求审查 \path{outputs/intermittent_demand_review.md} 显示，76 条门店--商品序列中有 54 条零销量比例不低于 50\%，解释了门店--商品层级 WAPE 较高的原因。间歇性需求建模思想可参考 Croston 方法 \cite{croston1972intermittent}，但本文不将其作为主模型。
+误差诊断显示，综合 Ridge 在门店 A地双桥路店、低销量商品和样本不足的活动日场景误差较大；间歇性需求审查显示，76 条门店--商品序列中有 54 条零销量比例不低于 50\%，解释了门店--商品层级 WAPE 较高的原因。间歇性需求建模思想可参考 Croston 方法及后续对间歇需求预测精度的研究 \cite{croston1972intermittent,syntetos2005accuracy}，但在本题数据规模下，本文主要将其作为误差来源解释。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{q4_error_by_store_bar.png}
-\caption{门店误差诊断，用于定位严格递推验证下误差较高的门店}
+\caption{严格递推验证下各门店 WAPE 对比}
 \label{fig:q4_error_store}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{q4_error_by_category_bar.png}
-\caption{类别误差诊断，用于定位严格递推验证下误差较高的类别}
+\caption{严格递推验证下各类别 WAPE 对比}
 \label{fig:q4_error_category}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.82\textwidth]{q4_actual_vs_predicted_scatter.png}
-\caption{严格递推验证真实值与预测值散点，用于检查预测值与真实值的对应关系}
+\caption{严格递推验证真实值与预测值散点}
 \label{fig:q4_scatter}
 \end{figure}

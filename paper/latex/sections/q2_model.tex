@@ -19,9 +19,70 @@ r_{pq}=
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.95\textwidth]{q2_overall_product_correlation_heatmap.png}
-\caption{商品相关性热力图，用于展示商品日销量同步波动结构}
+\caption{商品日销量相关性热力图}
 \label{fig:q2_corr}
 \end{figure}
+
+全部门店汇总层面共计算 $12$ 个商品代码之间的 66 对 Pearson 相关系数。本文将 $r\ge 0.50$ 记为强正相关，将 $|r|\le 0.10$ 记为弱线性相关。结果中有 2 对强正相关商品对，见表 \ref{tab:q2_strong_pairs}；有 25 对弱相关商品对，见表 \ref{tab:q2_weak_pairs}。
+
+\begin{table}[H]
+\centering
+\caption{强正相关商品对}
+\label{tab:q2_strong_pairs}
+\begin{tabular}{llrr}
+\toprule
+商品 A & 商品 B & 相关系数 & 同日均有销量天数 \\
+\midrule
+三养辣火鸡味拌面 & 乡吧哥蜜汁鸡翅 & 0.521 & 516 \\
+三养辣火鸡味拌面 & 李子柒螺蛳粉335g & 0.506 & 400 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begingroup
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{p{4.4cm}p{4.6cm}p{1.7cm}p{2.0cm}}
+\caption{弱相关商品对（$|r|\le 0.10$）}
+\label{tab:q2_weak_pairs}\\
+\toprule
+商品 A & 商品 B & 相关系数 & 同日均有销量天数 \\
+\midrule
+\endfirsthead
+\toprule
+商品 A & 商品 B & 相关系数 & 同日均有销量天数 \\
+\midrule
+\endhead
+老板仔香脆海苔卷（原味） & 洽洽早餐每日坚果（燕麦片） & -0.063 & 11 \\
+大丰古法瓜子 & 洽洽早餐每日坚果（燕麦片） & -0.055 & 16 \\
+韩国海牌海苔 / 韩国海飘海苔 & 洽洽早餐每日坚果（燕麦片） & -0.026 & 17 \\
+特仑苏纯牛奶 & 李子柒螺蛳粉335g & -0.025 & 254 \\
+特仑苏纯牛奶 & 红牛 & -0.018 & 390 \\
+特仑苏纯牛奶 & 洽洽早餐每日坚果（燕麦片） & -0.016 & 9 \\
+百事可乐330ml & 洽洽早餐每日坚果（燕麦片） & -0.009 & 17 \\
+李子柒螺蛳粉335g & 洽洽早餐每日坚果（燕麦片） & -0.004 & 16 \\
+洽洽早餐每日坚果（燕麦片） & 红牛 & 0.018 & 17 \\
+三养辣火鸡味拌面 & 洽洽早餐每日坚果（燕麦片） & 0.019 & 14 \\
+百事可乐330ml & 特仑苏纯牛奶 & 0.020 & 375 \\
+乡吧哥蜜汁鸡翅 & 特仑苏纯牛奶 & 0.020 & 380 \\
+特仑苏纯牛奶 & 大丰古法瓜子 & 0.020 & 377 \\
+三养辣火鸡味拌面 & 特仑苏纯牛奶 & 0.023 & 288 \\
+乡吧哥蜜汁鸡翅 & 洽洽早餐每日坚果（燕麦片） & 0.024 & 17 \\
+韩国海牌海苔 / 韩国海飘海苔 & 特仑苏纯牛奶 & 0.028 & 374 \\
+洽洽早餐每日坚果（燕麦片） & 旺仔牛奶 & 0.034 & 17 \\
+特仑苏纯牛奶 & 百事可乐600ml & 0.036 & 391 \\
+韩国海牌海苔 / 韩国海飘海苔 & 红牛 & 0.037 & 699 \\
+洽洽早餐每日坚果（燕麦片） & 百事可乐600ml & 0.041 & 17 \\
+特仑苏纯牛奶 & 旺仔牛奶 & 0.045 & 368 \\
+李子柒螺蛳粉335g & 红牛 & 0.054 & 491 \\
+大丰古法瓜子 & 红牛 & 0.065 & 699 \\
+百事可乐330ml & 大丰古法瓜子 & 0.085 & 679 \\
+老板仔香脆海苔卷（原味） & 特仑苏纯牛奶 & 0.091 & 301 \\
+\bottomrule
+\end{longtable}
+\endgroup
+
+表 \ref{tab:q2_strong_pairs} 中两对强正相关都包含三养辣火鸡味拌面，更合理的解释是它们在历史日销量上同步波动，可能共同受到客流、即时餐食消费场景或促销陈列节奏影响。表 \ref{tab:q2_weak_pairs} 中，多数弱相关对涉及低销量商品或消费场景差异较大的商品；这说明在当前附件数据下，不能把相关性弱或略为负相关直接解释为替代关系。
 
 \subsection{同类零食整合}
 
@@ -34,17 +95,17 @@ Y_{t,g}=\sum_{p:c(p)=g}y_{t,p}.
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.94\textwidth]{q2_category_daily_trend.png}
-\caption{类别日销量趋势，用于观察类别层面的时间波动}
+\caption{各类别日销量历史趋势}
 \label{fig:q2_category_trend}
 \end{figure}
 
 \subsection{类别预测与误差比较}
 
-本文比较“单品预测后按类别加总”和“类别聚合后直接预测”。验证结果见表 \ref{tab:q2_metrics}。
+本文比较“单品预测后按类别加总”和“类别聚合后直接预测”。验证结果见表 \ref{tab:q2_metrics}，口径为 2022 年 3 月日滚动一步验证。
 
 \begin{table}[H]
 \centering
-\caption{问题二类别预测策略误差比较}
+\caption{问题二类别预测策略误差比较（日滚动一步验证）}
 \label{tab:q2_metrics}
 \begin{tabular}{llrrr}
 \toprule
@@ -58,14 +119,7 @@ Y_{t,g}=\sum_{p:c(p)=g}y_{t,p}.
 \end{tabular}
 \end{table}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.82\textwidth]{q2_category_method_wape_comparison.png}
-\caption{类别预测方法 WAPE 对比，用于比较聚合后直接预测和单品预测后加总}
-\label{fig:q2_wape}
-\end{figure}
-
-因此，问题二主方案采用“附件类别聚合后直接预测 + 简单指数平滑”。相关性聚类 WAPE=31.02\%，销量规模分组 WAPE=24.24\%，但前者业务类别含义弱，后者预测对象变成高/中/低销量组，均不替代附件类别主方案。
+因此，问题二主方案采用“附件类别聚合后直接预测 + 简单指数平滑”。方法复核中，相关性聚类在同一日滚动一步验证下 WAPE=31.02\%，销量规模分组 WAPE=24.24\%，但前者业务类别含义弱，后者预测对象变成高/中/低销量组，均不替代附件类别主方案。
 
 \subsection{问题二结果}
 

@@ -1,0 +1,89 @@
+{
+  "validation_mode": "strict_recursive_7day",
+  "windows": [
+    {
+      "window_start": "2022-03-01",
+      "window_end": "2022-03-07"
+    },
+    {
+      "window_start": "2022-03-08",
+      "window_end": "2022-03-14"
+    },
+    {
+      "window_start": "2022-03-15",
+      "window_end": "2022-03-21"
+    },
+    {
+      "window_start": "2022-03-22",
+      "window_end": "2022-03-28"
+    }
+  ],
+  "store_product_metrics": [
+    {
+      "model": "q1_store_product_exp_smoothing",
+      "model_label": "问题一门店-商品简单指数平滑",
+      "MAE": 1.8157322272490461,
+      "RMSE": 3.772464167389725,
+      "WAPE": 0.7634614067547856,
+      "WAPE_pct": 76.34614067547855
+    },
+    {
+      "model": "ridge_full_external",
+      "model_label": "完整综合Ridge",
+      "MAE": 1.8237641830607354,
+      "RMSE": 3.702480935647709,
+      "WAPE": 0.7668386053256757,
+      "WAPE_pct": 76.68386053256756
+    },
+    {
+      "model": "ridge_no_event",
+      "model_label": "去节假日活动Ridge",
+      "MAE": 1.8302773951313753,
+      "RMSE": 3.7478664500757577,
+      "WAPE": 0.7695772173166502,
+      "WAPE_pct": 76.95772173166502
+    },
+    {
+      "model": "ridge_no_activity",
+      "model_label": "去活动日Ridge",
+      "MAE": 1.8365223696988016,
+      "RMSE": 3.7478232363249884,
+      "WAPE": 0.7722030434141572,
+      "WAPE_pct": 77.22030434141573
+    },
+    {
+      "model": "ridge_no_weather",
+      "model_label": "去天气Ridge",
+      "MAE": 1.8485309128918133,
+      "RMSE": 3.6975877326345032,
+      "WAPE": 0.7772522787262949,
+      "WAPE_pct": 77.72522787262949
+    },
+    {
+      "model": "ridge_history_calendar",
+      "model_label": "历史日历Ridge",
+      "MAE": 1.8594888785830466,
+      "RMSE": 3.739468881198228,
+      "WAPE": 0.7818597774401744,
+      "WAPE_pct": 78.18597774401745
+    },
+    {
+      "model": "ridge_history_id_category",
+      "model_label": "仅历史与层级Ridge",
+      "MAE": 1.8667087922872934,
+      "RMSE": 3.743241513676988,
+      "WAPE": 0.7848955364527486,
+      "WAPE_pct": 78.48955364527485
+    },
+    {
+      "model": "ridge_no_history",
+      "model_label": "无销量历史Ridge",
+      "MAE": 2.009317727766684,
+      "RMSE": 4.252404206576045,
+      "WAPE": 0.8448583530305284,
+      "WAPE_pct": 84.48583530305284
+    }
+  ],
+  "best_store_product_model": "q1_store_product_exp_smoothing",
+  "best_store_product_wape_pct": 76.34614067547855
+}

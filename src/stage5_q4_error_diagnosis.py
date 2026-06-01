@@ -313,7 +313,6 @@ def plot_error_tables(
     store_plot = by_store.sort_values("WAPE_pct", ascending=True)
     fig, ax = plt.subplots(figsize=(10, 5.5))
     ax.barh(store_plot["store_name"], store_plot["WAPE_pct"], color="#4C78A8")
-    ax.set_title("问题四各门店验证误差（WAPE）")
     ax.set_xlabel("WAPE (%)")
     ax.set_ylabel("门店")
     for idx, row in enumerate(store_plot.itertuples()):
@@ -328,7 +327,6 @@ def plot_error_tables(
     labels = product_plot["product_name"].astype(str)
     fig, ax = plt.subplots(figsize=(11, 6))
     ax.barh(labels, product_plot["WAPE_pct"], color="#F58518")
-    ax.set_title("问题四商品误差 Top 10（按 WAPE 从高到低选取）")
     ax.set_xlabel("WAPE (%)")
     ax.set_ylabel("商品")
     for idx, row in enumerate(product_plot.itertuples()):
@@ -339,7 +337,6 @@ def plot_error_tables(
     category_plot = by_category.sort_values("WAPE_pct", ascending=True)
     fig, ax = plt.subplots(figsize=(10, 5.5))
     ax.barh(category_plot["category"], category_plot["WAPE_pct"], color="#54A24B")
-    ax.set_title("问题四各类别验证误差（WAPE）")
     ax.set_xlabel("WAPE (%)")
     ax.set_ylabel("类别")
     for idx, row in enumerate(category_plot.itertuples()):
@@ -353,7 +350,6 @@ def plot_error_tables(
     ax.scatter(scatter["actual"], scatter["prediction"], alpha=0.45, s=18, color="#4C78A8")
     max_value = float(max(scatter["actual"].max(), scatter["prediction"].max()))
     ax.plot([0, max_value], [0, max_value], color="#D62728", linewidth=1.2, label="真实值=预测值")
-    ax.set_title("问题四验证集真实值 vs 预测值")
     ax.set_xlabel("真实销量")
     ax.set_ylabel("预测销量")
     ax.legend()
@@ -363,7 +359,6 @@ def plot_error_tables(
     calendar_plot = by_calendar.dropna(subset=["WAPE_pct"]).sort_values("WAPE_pct", ascending=True)
     fig, ax = plt.subplots(figsize=(8.5, 4.8))
     ax.barh(calendar_plot["calendar_type"], calendar_plot["WAPE_pct"], color="#B279A2")
-    ax.set_title("问题四日历场景验证误差（WAPE）")
     ax.set_xlabel("WAPE (%)")
     ax.set_ylabel("日历类型")
     for idx, row in enumerate(calendar_plot.itertuples()):

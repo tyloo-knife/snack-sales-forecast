@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
+.pytest_cache/
 
 # Local environments and secrets
 .venv/
@@ -22,9 +23,8 @@ Thumbs.db
 # Local packaging artifacts
 dist/
 *.zip
-notebooks/
 
-# LaTeX build artifacts
+# LaTeX build and local PDF inspection artifacts
 paper/latex/*.aux
 paper/latex/*.bbl
 paper/latex/*.blg
@@ -32,11 +32,15 @@ paper/latex/*.fdb_latexmk
 paper/latex/*.fls
 paper/latex/*.log
 paper/latex/*.out
+paper/latex/*.toc
+paper/latex/*.synctex.gz
 paper/latex/*.xdv
-paper/latex/*.pdf
+paper/latex/main.pdf
 paper/latex/build/
-
-# Local render/check images
+paper/latex/compile_*.log
+submission/compile_*.log
 paper/final_paper_page*.png
 outputs/final_paper_page*_check*.png
-submission/*.log
+
+# Local archival backups
+archive/

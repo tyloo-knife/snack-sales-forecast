@@ -967,7 +967,6 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(12, 6))
     plot_metrics = store_product_metrics.sort_values("WAPE", ascending=True)
     ax.barh(plot_metrics["model_label"], plot_metrics["WAPE_pct"], color="#4477AA")
-    ax.set_title("图20 门店-商品粒度验证 WAPE 比较")
     ax.set_xlabel("WAPE (%)")
     for i, row in enumerate(plot_metrics.itertuples()):
         ax.text(row.WAPE_pct, i, f"{row.WAPE_pct:.1f}%", va="center", fontsize=9)
@@ -985,7 +984,6 @@ def main() -> None:
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.set_ylabel("WAPE (%)")
-    ax.set_title("图21 综合模型与问题一/二模型 WAPE 比较")
     ax.legend()
     fig.tight_layout()
     fig.savefig(FIGURES / "q4_previous_model_comparison.png", bbox_inches="tight")
@@ -994,7 +992,6 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(12, 6))
     store_total_plot = store_total.sort_values("predicted_7day_sales", ascending=True)
     ax.barh(store_total_plot["store_name"], store_total_plot["predicted_7day_sales"], color="#66AA55")
-    ax.set_title("图22 各门店未来 7 天综合预测总销量")
     ax.set_xlabel("预测 7 日总销量")
     for i, row in enumerate(store_total_plot.itertuples()):
         ax.text(row.predicted_7day_sales, i, f"{row.predicted_7day_sales:.1f}", va="center", fontsize=9)
@@ -1005,7 +1002,6 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(12, 6))
     cat_plot = category_total.sort_values("predicted_7day_sales", ascending=True)
     ax.barh(cat_plot["category"], cat_plot["predicted_7day_sales"], color="#AA4499")
-    ax.set_title("图23 各类别未来 7 天综合预测总销量")
     ax.set_xlabel("预测 7 日总销量")
     for i, row in enumerate(cat_plot.itertuples()):
         ax.text(row.predicted_7day_sales, i, f"{row.predicted_7day_sales:.1f}", va="center", fontsize=9)
