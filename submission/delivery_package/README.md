@@ -102,7 +102,7 @@ latexmk -xelatex -interaction=nonstopmode main.tex
 Copy-Item main.pdf ..\..\submission\final_paper.pdf -Force
 ```
 
-封面成员信息来源于 `paper/cover_member_info.csv`，最终 PDF 以 `submission/final_paper.pdf` 为准。
+成员学号、电话等联系方式已从仓库删除，不再保留 `paper/cover_member_info.csv`。论文封面不填写真实联系方式；对外提交前请重新编译 PDF。
 
 ## 审查说明
 

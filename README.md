@@ -58,7 +58,7 @@ GitHub 仓库地址：[https://github.com/tyloo-knife/snack-sales-forecast](http
 | `outputs/final_7day_forecast_hybrid_low_volume.csv` | 最终连续预测表 |
 | `outputs/final_7day_forecast_hybrid_low_volume_integer.csv` | 最终整数预测表 |
 | `paper/latex/main.tex` | 论文主文件 |
-| `submission/final_paper.pdf` | 最终论文 PDF |
+| `submission/final_paper.pdf` | 已从仓库移除。原 PDF 封面含成员联系方式，需按下方说明重新编译 |
 | `submission/final_7day_forecast.csv` | 提交用连续预测表 |
 | `submission/final_7day_forecast_integer.csv` | 提交用整数预测表 |
 
@@ -102,7 +102,7 @@ latexmk -xelatex -interaction=nonstopmode main.tex
 Copy-Item main.pdf ..\..\submission\final_paper.pdf -Force
 ```
 
-封面成员信息来源于 `paper/cover_member_info.csv`，最终 PDF 以 `submission/final_paper.pdf` 为准。
+成员学号、电话等联系方式已从仓库删除，不再保留 `paper/cover_member_info.csv`。论文封面不填写真实联系方式；对外提交前请重新编译 PDF。
 
 ## 审查说明
 

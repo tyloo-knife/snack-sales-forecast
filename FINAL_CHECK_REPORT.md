@@ -106,4 +106,4 @@
 
 ## 8. 个人信息终检
 
-LaTeX 源文件中个人信息仅出现在 `paper/latex/main.tex` 的 `titlepage` 成员信息表，对应指定封面页；`paper/latex/sections/` 正文未检出姓名、学号或电话。`paper/cover_member_info_template.md` 为封面成员信息模板，保持原样。
+成员学号、姓名和电话已从论文封面移除。`paper/cover_member_info.csv` 与 `paper/cover_member_info_template.md` 不再保留。已编译 PDF 若仍含封面联系方式，不得再作为提交件。
